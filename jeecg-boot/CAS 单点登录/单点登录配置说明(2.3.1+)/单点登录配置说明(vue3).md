@@ -1,0 +1,40 @@
+## 单点登录配置说明
+
+=============================
+- 前端vue项目对接CAS
+> Jeecg Boot前端3.0.0以后只默认集成SSO所有要的代码，只需需修改环境配置文件即可开启SSO
+
+### 打开.env文件
+```
+#单点服务端地址
+VITE_GLOBE_APP_CAS_BASE_URL=http://cas.test.com:8443/cas
+
+# 是否开启单点登录
+VITE_GLOB_APP_OPEN_SSO = false
+```
+VITE_GLOB_APP_OPEN_SSO =true 即代表开启SSO登录
+
+
+
+=============================
+- 后端boot修改yml配置
+
+~~~
+cas:
+  # 配置CAS服务地址，cas为工程目录，部署到ROOT目录下http://cas.test.com:8443即可
+  prefixUrl: http://cas.test.com:8443/cas 
+~~~
+
+=============================
+- 单点服务端配置说明
+1.cas-db: 是一个springboot项目，只要修改数据库配置，诸如server.port、context-path如无必要可不修改
+2.overlay：可以打包成war通过tomcat发布，端口和地址修改tomcat配置即可(和`8443/cas`保持一致)，需要注意的是如果1中cas-db项目的端口、访问地址修改了，需要修改overlay配置`src\main\resources\application.properties`如下图
+![](images/e632a9fc0a6c2efbaaeedbae5d772bc6_1782x455.png)
+
+
+*如在本地测试 上述地址 `cas.test.com`可修改host文件*
+
+
+
+
+
