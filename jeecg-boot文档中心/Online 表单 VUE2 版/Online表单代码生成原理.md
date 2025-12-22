@@ -129,7 +129,7 @@ flowchart LR
   Svc -->|读 head/field/button/增强| VO[TableVo·ColumnVo·SubTableVo]
   VO --> Enum[CgformEnum 选模板目录]
   Enum --> Gen[CodeGenerateOne / OneToMany]
-  Gen -->|FreeMarker 渲染| Files[写入 projectPath<br/>(src/main/java 与 webapp)]
+  Gen -->|FreeMarker 渲染| Files["写入 projectPath\n(src/main/java 和 webapp)"]
   Files --> Redis[Redis pathKey->projectPath<br/>TTL 1800s]
   Redis --> DL[POST /downGenerateCode<br/>打包下载]
 ```
