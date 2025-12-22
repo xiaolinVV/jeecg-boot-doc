@@ -104,8 +104,8 @@
 
 ---
 
-## 附：模板占位符与输出结构（基于公开版模板的可验证推断）
-> 后端模板在私有 jar 中，无法直接展开；以下占位符和结构来自 Jeecg 公开代码生成模板的通用写法，足以对照生成结果进行排查。
+## 附：模板占位符与输出结构（本仓实锤）
+> 模板就在仓内：`jeecg-boot/jeecg-module-system/jeecg-system-biz/src/main/resources/jeecg/code-template-online`。目录按风格拆分：`default`（常规 VUE2/3 单表、一对多）、`jvxe`、`erp`、`tab`、`inner-table`，公共片段在 `common/`。文件后缀 `.javai/.vuei/.tsi` 会在生成时落地成 `.java/.vue/.ts`。
 
 ### 常见占位符（FreeMarker 风格）
 - `${packageName}`：代码基础包，与生成器表单的 `entityPackage`、`packageStyle` 共同决定。
@@ -167,9 +167,34 @@ formItems: [
 ]
 ```
 
+### 真实模板片段示例（仓库路径示例）
+文件：`default/onetomany/java/${bussiPackage}/${entityPackage}/controller/${entityName}Controller.javai`
+```ftl
+package ${bussiPackage}.${entityPackage}.controller;
+...
+<#list subTables as sub>
+import ${bussiPackage}.${entityPackage}.entity.${sub.entityName};
+</#list>
+...
+@RequestMapping("/${entityPackage}/${entityName?uncap_first}")
+public class ${entityName}Controller {
+  @Autowired private I${entityName}Service ${entityName?uncap_first}Service;
+  <#list subTables as sub>
+  @Autowired private I${sub.entityName}Service ${sub.entityName?uncap_first}Service;
+  </#list>
+  @GetMapping("/list") ... QueryGenerator.initQueryWrapper(${entityName?uncap_first}, req.getParameterMap());
+  @PostMapping("/add") ... saveMain(${entityName?uncap_first}, <#list subTables as sub>${entityName?uncap_first}Page.get${sub.entityName}List()<#if sub_has_next>,</#if></#list>);
+}
+```
+可见：生成上下文里提供 `subTables`、`originalColumns`、`tableVo.ftlDescription` 等对象，直接驱动一对多 CRUD 代码。
+
+### 模板目录选择逻辑（与前端生成参数对应）
+- `jspMode` → 目录：普通/树用 `default/tree`，一对多用 `default/onetomany`，内嵌 `inner-table`，ERP `erp`，TAB `tab`，JVXE `jvxe`。
+- `packageStyle` 仅影响包路径拼装（`service` vs `project`），不影响模板目录。
+
 ### 校验生成结果的办法
 1. 生成代码后，检查实体/Mapper/Vue 是否包含上述占位符展开的实际值。
 2. 若某字段缺失，回查对应 `onl_cgform_field` 的 `is_db_synch`、`db_is_persist`、`is_show_form/list/query` 是否为 0。
 3. 一对多：确认主表生成了子表 tabs/内嵌组件，子表 mapper/service 同步生成；外键列以 `_ID` 命名并写入 XML join/on 条件。
 
-> 由于模板闭源，若需要逐文件对照，可先把生成目录置空，再生成一次，通过 `find`/`diff` 观察新增内容，结合上面的占位符映射即可定位问题。***
+> 若需逐文件核对，可先清空目标目录，再生成一次；用 `find`/`diff` 观察新增文件，对照模板占位符定位问题。***
