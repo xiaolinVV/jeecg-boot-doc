@@ -1,5 +1,6 @@
 # Online 表单代码生成原理（VUE2 端）——基于反编译源码的全链路说明
 
+> 前端在线表单核心组件未开源，打包于 `ant-design-vue-jeecg/node_modules/@jeecg/antd-online-mini/dist/OnlineForm.umd.min.js`；  
 > 后端源码未开源，已反编译保存于仓库根 `jeecg-decomp/`：  
 > - `jeecg-decomp/hibernate-re-3.6.1-RC`：在线表单接口与服务实现  
 > - `jeecg-decomp/codegenerate-1.4.7`：代码生成引擎与模板渲染基类  
