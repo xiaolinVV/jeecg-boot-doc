@@ -81,7 +81,7 @@ flowchart LR
 - 字段类型映射：内部 `b(dbType)` 将 string→String，int→Integer/Long，BigDecimal/double/Datetime 等。
 
 ### 4.3 模板引擎：`jeecg-decomp/codegenerate-1.4.7/org/jeecgframework/codegenerate/generate/impl/a/a.java` (BaseCodeGenerate)
-- 遍历模板根目录，按 `stylePath` 过滤（Vue2/Vue3/JVXE）。
+- 遍历模板根目录，按 `stylePath` 过滤（不同风格目录）。
 - 相对路径前缀 `java` → 输出到 `src/main/java/{packagePath}/...`；前缀 `webapp` → 输出到 `src/main/resources`/前端路径（常量 h/i）。
 - 使用 FreeMarker 渲染，上下文 Map 由 TableVo/SubTableVo/fieldList 等填充。
 
@@ -91,17 +91,17 @@ flowchart LR
 - 模板根：`jeecg-module-system/jeecg-system-biz/src/main/resources/jeecg/code-template-online/`
 - `jspMode` → `stylePath` → 模板子目录；`packageStyle` 只影响 Java 包路径，不影响模板目录。
 
-| type | jspMode(code) | 结构 | stylePath | 说明 | 支持的 vueStyle |
+| type | jspMode(code) | 结构 | stylePath | 说明 | vueStyle |
 | --- | --- | --- | --- | --- | --- |
-| 1 | `one` | 单表 | `default.one` | 经典风格 | `vue3` / `vue` / `vue3Native` |
+| 1 | `one` | 单表 | `default.one` | 经典风格 | `vue` |
 | 2 | `many` | 一对多 | `default.onetomany` | 经典风格 | `vue` |
-| 2 | `jvxe` | 一对多 | `jvxe.onetomany` | JVXE 风格 | `vue3` / `vue` / `vue3Native` |
-| 2 | `erp` | 一对多 | `erp.onetomany` | ERP 风格 | `vue3` / `vue` / `vue3Native` |
-| 2 | `innerTable` | 一对多 | `inner-table.onetomany` | 内嵌子表风格 | `vue3` / `vue` |
-| 2 | `tab` | 一对多 | `tab.onetomany` | Tab 风格 | `vue3` / `vue` |
-| 3 | `tree` | 树表 | `default.tree` | 树形列表 | `vue3` / `vue` / `vue3Native` |
+| 2 | `jvxe` | 一对多 | `jvxe.onetomany` | JVXE 风格 | `vue` |
+| 2 | `erp` | 一对多 | `erp.onetomany` | ERP 风格 | `vue` |
+| 2 | `innerTable` | 一对多 | `inner-table.onetomany` | 内嵌子表风格 | `vue` |
+| 2 | `tab` | 一对多 | `tab.onetomany` | Tab 风格 | `vue` |
+| 3 | `tree` | 树表 | `default.tree` | 树形列表 | `vue` |
 
-> 注意：`default/onetomany` 目录仅有 Vue2 模板文件，与 `CgformEnum.MANY` 的 vueStyle（仅 `vue`）一致；  
+> 注意：`default/onetomany` 目录仅有 Vue2 模板文件，与本文范围一致；  
 > 其它一对多风格按各自模板目录（`jvxe/erp/inner-table/tab`）区分。
 
 ### 5.2 目录分层与结构含义
@@ -122,7 +122,7 @@ flowchart LR
 | 1 | `one` | 单表 | Controller / Service / Mapper / Entity / XML | `List.vue` + `Form.vue/Modal.vue` |
 | 3 | `tree` | 树表 | 同单表 + 树查询逻辑 | `List.vue` + 树形增改（Modal/Form） |
 | 3 | `many` | 一对多（经典） | 主表 + 子表 entity/mapper/service + `*Page` | Vue2：主列表 + 子表 Form |
-| 3 | `jvxe` | 一对多（JVXE） | 同一对多 | Vue2/Vue3：JVXE 子表编辑 |
+| 3 | `jvxe` | 一对多（JVXE） | 同一对多 | JVXE 子表编辑 |
 | 3 | `erp` | 一对多（ERP） | 同一对多 | 主列表 + 子表列表/弹窗（ERP 结构） |
 | 3 | `innerTable` | 一对多（内嵌） | 同一对多 | 子表以内嵌 `SubTable.vue` 呈现 |
 | 3 | `tab` | 一对多（Tab） | 同一对多 | 子表以 Tab 形式呈现 |
@@ -130,7 +130,6 @@ flowchart LR
 > 备注：实际生成受 `vueStyle` 约束（见 5.1 表），例如 `default/onetomany` 仅支持 Vue2（`vue`）。
 
 ### 5.4 Vue2 输出目录结构示意（典型）
-> 仅示意 Vue2 代码生成后的结构，不含 Vue3/Vue3Native/UniApp。
 
 ```
 <projectPath>/
@@ -175,7 +174,7 @@ flowchart TB
 | InnerTable（inner-table.onetomany） | 子表内嵌 | `vue/subTables/[1-n]SubTable.vuei`、`vue/modules/${entityName}Form.vuei`、`vue/modules/[1-n]Form.vuei` | 子表以内嵌组件渲染 |
 | Tab（tab.onetomany） | 子表 Tab | `vue/modules/${entityName}Form.vuei`、`vue/modules/[1-n]Form.vuei` | 子表以 Tab 切换 |
 
-> 备注：Jvxe/Erp/InnerTable/Tab 的 Vue3/Vue3Native 差异类似，但路径在 `vue3/` 或 `vue3Native/` 下。
+> 备注：本文仅关注 Vue2 模板路径。
 
 ## 6. 数据库元数据与字段映射
 
@@ -475,23 +474,6 @@ rate
   `default/one/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
   `default/one/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal__Style#Drawer.vuei`  
   `default/one/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3：  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Form.vuei`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3Native：  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}List.vuei`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Form.vuei`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Modal.vuei`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__api.tsi`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__data.tsi`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/V${currentDate}_1__menu_insert_${entityName}.sql`
-- UniApp：  
-  `default/one/java/${bussiPackage}/${entityPackage}/uniapp/${entityName}List.vue`  
-  `default/one/java/${bussiPackage}/${entityPackage}/uniapp/${entityName}Form.vue`
 
 ### 9.2 `default.tree`（树表 / 经典）
 - Java：  
@@ -505,20 +487,6 @@ rate
   `default/tree/java/${bussiPackage}/${entityPackage}/vue/${entityName}List.vuei`  
   `default/tree/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
   `default/tree/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3：  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Form.vuei`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3Native：  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}List.vuei`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Form.vuei`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Modal.vuei`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__api.tsi`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__data.tsi`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/V${currentDate}_1__menu_insert_${entityName}.sql`
 
 ### 9.3 `default.onetomany`（一对多 / 经典）
 - Java：  
@@ -561,22 +529,6 @@ rate
   `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
   `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/[1-n]Form.vuei`  
   `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3：  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Form.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/[1-n]Form.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3Native：  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}List.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Form.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Modal.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/[1-n]Form.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__api.tsi`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__data.tsi`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/V${currentDate}_1__menu_insert_${entityName}.sql`
 
 ### 9.5 `erp.onetomany`（一对多 / ERP）
 - Java：  
@@ -597,24 +549,6 @@ rate
   `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
   `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/[1-n]Modal.vuei`  
   `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3：  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/[1-n]List.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/[1-n]Modal.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3Native：  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}List.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/[1-n]List.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Form.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Modal.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/[1-n]Form.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/[1-n]Modal.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__api.tsi`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__data.tsi`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/V${currentDate}_1__menu_insert_${entityName}.sql`
 
 ### 9.6 `inner-table.onetomany`（一对多 / 内嵌子表）
 - Java：  
@@ -637,15 +571,6 @@ rate
   `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/[1-n]Form.vuei`  
   `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue/subTables/[1-n]SubTable.vuei`  
   `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3：  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Form.vuei`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/[1-n]Form.vuei`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/subTables/[1-n]SubTable.vuei`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
 
 ### 9.7 `tab.onetomany`（一对多 / Tab）
 - Java：  
@@ -667,36 +592,15 @@ rate
   `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
   `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/[1-n]Form.vuei`  
   `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3：  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Form.vuei`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/[1-n]Form.vuei`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
 
 ### 9.8 `common`（公共片段）
 - 初始化：  
   `common/init/initValue.ftl`  
   `common/init/initValueSub.ftl`  
-  `common/init/native/vue3NativeInitValue.ftl`  
-  `common/init/native/vue3NativeMainInitValue.ftl`  
-  `common/init/native/vue3NativeSubInitValue.ftl`
-- 表单片段：  
-  `common/form/vue3popup.ftl`  
-  `common/form/vue3Jvxepopup.ftl`  
-  `common/form/native/vue3NativeForm.ftl`  
-  `common/form/native/vue3NativeSearch.ftl`  
-  `common/form/native/vue3NativeComponents.ftl`  
-  `common/form/native/vue3NativeImport.ftl`
 - 校验规则：  
   `common/validatorRulesTemplate/core.ftl`  
   `common/validatorRulesTemplate/main.ftl`  
   `common/validatorRulesTemplate/sub.ftl`  
-  `common/validatorRulesTemplate/sub-vue3.ftl`  
-  `common/validatorRulesTemplate/native/vue3CoreNative.ftl`  
-  `common/validatorRulesTemplate/native/vue3MainNative.ftl`
 - 其它：  
   `common/utils.ftl`  
   `common/blob.ftl`  
