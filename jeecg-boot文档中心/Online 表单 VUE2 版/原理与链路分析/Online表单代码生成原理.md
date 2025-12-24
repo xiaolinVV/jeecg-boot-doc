@@ -6,7 +6,9 @@
 > - `jeecg-decomp/codegenerate-1.4.7`：代码生成引擎与模板渲染基类  
 > 模板文件本身在仓库：`jeecg-module-system/jeecg-system-biz/src/main/resources/jeecg/code-template-online`
 
-## 1. 页面截图（核对 UI 与文档一致性）
+## 1. 前端视角：页面与使用流程
+
+### 1.1 页面截图（核对 UI 与文档一致性）
 - 在线表单列表页：![](images/Online表单开发页面.png)  
   按钮含：新增、自定义按钮、JS/SQL/JAVA 增强、导入数据库表、代码生成，与文中描述一致。
 - 新增表单弹窗：![](images/Online表单开发新增表单.png)  
@@ -14,15 +16,23 @@
 - 代码生成弹窗：![](images/Online表单开发代码生成.png)  
   字段：代码生成目录、页面风格(jspMode)、表名/实体名/包名/功能说明/代码类型，与前端采集参数章节一致。
 
-## 2. 数据到模板的总流程
-前端生成器表单 JSON → `OnlCgformApiController`(`/online/cgform/api/codeGenerate`) → `IOnlCgformHeadService.generateCode` / `generateOneToMany` → 组装 TableVo/ColumnVo/SubTableVo → `codegenerate` 模块 BaseCodeGenerate + FreeMarker 读取 `code-template-online` 模板 → 输出 Java/Vue/Mapper/XML/SQL 到指定 projectPath。
+### 1.2 用户操作流程（前端视角）
+```mermaid
+flowchart TD
+  A[进入 Online表单开发页] --> B[点击 新增表单]
+  B --> C[配置表头/字段/控件/字典]
+  C --> D[保存]
+  D --> E[同步数据库 doDbSynch]
+  E --> F[功能测试/预览]
+  E --> G[代码生成弹窗 CodeGenerator]
+  G --> H[提交 codeGenerate]
+  H --> I[下载 ZIP downGenerateCode]
+  I --> J[拷贝前端代码 + 后端代码]
+  J --> K[菜单配置/角色授权]
+  K --> L[上线使用]
+```
 
-## 3. 元数据存储（在线表单配置）
-- 表头：`onl_cgform_head`（表名/类型/模板/树参数/分页/滚动/复制标记/同步标记 is_db_synch 等）
-- 字段：`onl_cgform_field`（db 字段类型、长度、小数、是否主键/必填/查询/列表/表单、控件 showType、字典配置、默认值、校验、href、排序、外键 mainTable/mainField、扩展 JSON）
-- 辅助：`onl_cgform_button`（自定义按钮）、`onl_cgform_enhance_{js,sql,java}`、`onl_cgform_index`
-
-## 4. 前端生成器采集参数（CodeGenerator 弹窗）
+## 2. 前端生成器采集参数（CodeGenerator 弹窗）
 - `projectPath`（本地存储记忆）
 - `jspMode`（模板风格：default/jvxe/erp/tab/inner-table/tree 等）
 - `jformType`（1 单表 / 3 一对多）
@@ -31,14 +41,31 @@
 - `codeTypes`（controller/service/dao/mapper/entity/vue）
 - 子表列表：表名/实体名/说明（来自 head.sub_table_str）
 
-## 5. 后端生成实现（基于反编译源码）
-### 5.1 控制器：`jeecg-decomp/hibernate-re-3.6.1-RC/org/jeecg/modules/online/cgform/c/a.java`
+## 3. 后端链路总览（请求 → 模板 → 文件）
+前端生成器表单 JSON → `OnlCgformApiController`(`/online/cgform/api/codeGenerate`) → `IOnlCgformHeadService.generateCode` / `generateOneToMany` → 组装 TableVo/ColumnVo/SubTableVo → `codegenerate` 模块 BaseCodeGenerate + FreeMarker 读取 `code-template-online` 模板 → 输出 Java/Vue/Mapper/XML/SQL 到指定 projectPath。
+
+### 3.1 后端生成链路（请求到文件）
+```mermaid
+flowchart LR
+  Req[POST /online/cgform/api/codeGenerate] --> Ctl[OnlCgformApiController]
+  Ctl -->|防火墙校验·写Redis pathKey| Svc[OnlCgformHeadService]
+  Svc -->|读 head/field/button/增强| VO[TableVo·ColumnVo·SubTableVo]
+  VO --> Enum[CgformEnum 选模板目录]
+  Enum --> Gen[CodeGenerateOne / OneToMany]
+  Gen -->|FreeMarker 渲染| Files["写入 projectPath\n(src/main/java 和 webapp)"]
+  Files --> Redis[Redis pathKey->projectPath<br/>TTL 1800s]
+  Redis --> DL[POST /downGenerateCode<br/>打包下载]
+```
+
+## 4. 后端实现细节
+
+### 4.1 控制器：`jeecg-decomp/hibernate-re-3.6.1-RC/org/jeecg/modules/online/cgform/c/a.java`
 - 路径 `/online/cgform/api/codeGenerate`
 - 防护：若开启 firewall.dataSourceSafe，强制使用全局 projectPath；生成后把 `pathKey`→`projectPath` 写 Redis(30 分钟)，用于下载/预览校验。
 - 分流：`jformType==1` 调 `generateCode`；否则 `generateOneToMany`。
 - 下载接口 `/downGenerateCode` / `/codeView` 校验请求路径必须在 Redis 记录的 projectPath 且包含 `src/main/java`，防目录穿越。
 
-### 5.2 服务：`jeecg-decomp/hibernate-re-3.6.1-RC/org/jeecg/modules/online/cgform/service/a/d.java`
+### 4.2 服务：`jeecg-decomp/hibernate-re-3.6.1-RC/org/jeecg/modules/online/cgform/service/a/d.java`
 - **generateCode（单表）**
   1) 取 head、字段列表（`db_is_persist=1` 按 order_num）。
   2) 映射 ColumnVo：dbName→camelName、dbType→javaType、长度/小数、isKey/isShow/isShowList/isQuery/queryMode/showType/字典/默认值/校验/href/排序/外键等。
@@ -53,13 +80,14 @@
   4) 若主表但未传子表，直接抛 `JeecgBootException`。
 - 字段类型映射：内部 `b(dbType)` 将 string→String，int→Integer/Long，BigDecimal/double/Datetime 等。
 
-### 5.3 模板引擎：`jeecg-decomp/codegenerate-1.4.7/org/jeecgframework/codegenerate/generate/impl/a/a.java` (BaseCodeGenerate)
+### 4.3 模板引擎：`jeecg-decomp/codegenerate-1.4.7/org/jeecgframework/codegenerate/generate/impl/a/a.java` (BaseCodeGenerate)
 - 遍历模板根目录，按 `stylePath` 过滤（Vue2/Vue3/JVXE）。
 - 相对路径前缀 `java` → 输出到 `src/main/java/{packagePath}/...`；前缀 `webapp` → 输出到 `src/main/resources`/前端路径（常量 h/i）。
 - 使用 FreeMarker 渲染，上下文 Map 由 TableVo/SubTableVo/fieldList 等填充。
 
-## 6. 模板目录与选择（细化到模板文件）
-### 6.1 枚举 → 模板路径 → 结构类型（来自 `CgformEnum`）
+## 5. 模板选择与输出结构（以 VUE2 为主）
+
+### 5.1 枚举 → 模板路径 → 结构类型（来自 `CgformEnum`）
 - 模板根：`jeecg-module-system/jeecg-system-biz/src/main/resources/jeecg/code-template-online/`
 - `jspMode` → `stylePath` → 模板子目录；`packageStyle` 只影响 Java 包路径，不影响模板目录。
 
@@ -76,7 +104,7 @@
 > 注意：`default/onetomany` 目录仅有 Vue2 模板文件，与 `CgformEnum.MANY` 的 vueStyle（仅 `vue`）一致；  
 > 其它一对多风格按各自模板目录（`jvxe/erp/inner-table/tab`）区分。
 
-### 6.2 目录分层与结构含义
+### 5.2 目录分层与结构含义
 - `default/one`：单表（经典）
 - `default/tree`：树表（经典）
 - `default/onetomany`：一对多（经典，Vue2）
@@ -86,7 +114,7 @@
 - `tab/onetomany`：一对多（子表 Tab）
 - `common/`：公共 FreeMarker 片段（表单、校验、初始化、SQL 片段）
 
-### 6.3 模板选择速查表（jspMode/jformType/输出结构）
+### 5.3 模板选择速查表（jspMode/jformType/输出结构）
 > 目的：不看源码就能快速选模板，避免“选错风格导致生成结构不匹配”。
 
 | jformType | jspMode | 结构类型 | 后端输出（典型） | 前端输出（典型） |
@@ -99,9 +127,9 @@
 | 3 | `innerTable` | 一对多（内嵌） | 同一对多 | 子表以内嵌 `SubTable.vue` 呈现 |
 | 3 | `tab` | 一对多（Tab） | 同一对多 | 子表以 Tab 形式呈现 |
 
-> 备注：实际生成受 `vueStyle` 约束（见 6.1 表），例如 `default/onetomany` 仅支持 Vue2（`vue`）。
+> 备注：实际生成受 `vueStyle` 约束（见 5.1 表），例如 `default/onetomany` 仅支持 Vue2（`vue`）。
 
-### 6.4 Vue2 输出目录结构示意（典型）
+### 5.4 Vue2 输出目录结构示意（典型）
 > 仅示意 Vue2 代码生成后的结构，不含 Vue3/Vue3Native/UniApp。
 
 ```
@@ -123,335 +151,7 @@
     src/views/<module>/modules/<SubEntity>Form.vue
 ```
 
-### 6.5 一对多前端差异对照（ERP / Tab / InnerTable / JVXE / 经典）
-> 只对比 Vue2 模板层面的差异，便于选型。
-
-| 模板 | 子表呈现 | 关键前端模板文件 | 说明 |
-| --- | --- | --- | --- |
-| 经典（default.onetomany） | 主表表单 + 子表表单 | `vue/${entityName}List.vuei`、`vue/modules/${entityName}Form.vuei`、`vue/modules/[1-n]Form.vuei` | Vue2 经典一对多 |
-| JVXE（jvxe.onetomany） | JVXE 可编辑表格 | `vue/${entityName}List.vuei`、`vue/modules/${entityName}Form.vuei`、`vue/modules/[1-n]Form.vuei` | 与经典同路径，但组件实现不同 |
-| ERP（erp.onetomany） | 子表列表 + 弹窗 | `vue/${entityName}List.vuei`、`vue/[1-n]List.vuei`、`vue/modules/${entityName}Modal.vuei`、`vue/modules/[1-n]Modal.vuei` | 子表使用列表与弹窗 |
-| InnerTable（inner-table.onetomany） | 子表内嵌 | `vue/subTables/[1-n]SubTable.vuei`、`vue/modules/${entityName}Form.vuei`、`vue/modules/[1-n]Form.vuei` | 子表以内嵌组件渲染 |
-| Tab（tab.onetomany） | 子表 Tab | `vue/modules/${entityName}Form.vuei`、`vue/modules/[1-n]Form.vuei` | 子表以 Tab 切换 |
-
-> 备注：Jvxe/Erp/InnerTable/Tab 的 Vue3/Vue3Native 差异类似，但路径在 `vue3/` 或 `vue3Native/` 下。
-
-### 6.6 各模板对应的模板文件清单（相对 `code-template-online/`）
-> 说明：`[1-n]` 代表子表实体占位符，`*.javai`/`*.vuei` 是 FreeMarker 模板文件后缀。
-
-#### 6.3.1 `default.one`（单表 / 经典）
-- Java：  
-  `default/one/java/${bussiPackage}/${entityPackage}/controller/${entityName}Controller.javai`  
-  `default/one/java/${bussiPackage}/${entityPackage}/service/I${entityName}Service.javai`  
-  `default/one/java/${bussiPackage}/${entityPackage}/service/impl/${entityName}ServiceImpl.javai`  
-  `default/one/java/${bussiPackage}/${entityPackage}/mapper/${entityName}Mapper.javai`  
-  `default/one/java/${bussiPackage}/${entityPackage}/mapper/xml/${entityName}Mapper.xml`  
-  `default/one/java/${bussiPackage}/${entityPackage}/entity/${entityName}.javai`
-- Vue2：  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue/${entityName}List.vuei`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Form.vuei`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal__Style#Drawer.vuei`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3：  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Form.vuei`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3Native：  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}List.vuei`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Form.vuei`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Modal.vuei`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__api.tsi`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__data.tsi`  
-  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/V${currentDate}_1__menu_insert_${entityName}.sql`
-- UniApp：  
-  `default/one/java/${bussiPackage}/${entityPackage}/uniapp/${entityName}List.vue`  
-  `default/one/java/${bussiPackage}/${entityPackage}/uniapp/${entityName}Form.vue`
-
-#### 6.3.2 `default.tree`（树表 / 经典）
-- Java：  
-  `default/tree/java/${bussiPackage}/${entityPackage}/controller/${entityName}Controller.javai`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/service/I${entityName}Service.javai`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/service/impl/${entityName}ServiceImpl.javai`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/mapper/${entityName}Mapper.javai`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/mapper/xml/${entityName}Mapper.xml`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/entity/${entityName}.javai`
-- Vue2：  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue/${entityName}List.vuei`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3：  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Form.vuei`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3Native：  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}List.vuei`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Form.vuei`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Modal.vuei`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__api.tsi`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__data.tsi`  
-  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/V${currentDate}_1__menu_insert_${entityName}.sql`
-
-#### 6.3.3 `default.onetomany`（一对多 / 经典）
-- Java：  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/controller/${entityName}Controller.javai`  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/service/I${entityName}Service.javai`  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/${entityName}ServiceImpl.javai`  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/service/[1-n]Service.javai`  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/[1-n]ServiceImpl.javai`  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/mapper/${entityName}Mapper.javai`  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/${entityName}Mapper.xml`  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/mapper/[1-n]Mapper.javai`  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/[1-n]Mapper.xml`  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/entity/${entityName}.javai`  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/entity/[1-n]Entity.javai`  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/vo/${entityName}Page.javai`
-- Vue2：  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/vue/${entityName}List.vuei`  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Form.vuei`  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/[1-n]Form.vuei`  
-  `default/onetomany/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
-
-#### 6.3.4 `jvxe.onetomany`（一对多 / JVXE）
-- Java：  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/controller/${entityName}Controller.javai`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/service/I${entityName}Service.javai`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/${entityName}ServiceImpl.javai`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/service/[1-n]Service.javai`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/[1-n]ServiceImpl.javai`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/mapper/${entityName}Mapper.javai`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/${entityName}Mapper.xml`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/mapper/[1-n]Mapper.javai`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/[1-n]Mapper.xml`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/entity/${entityName}.javai`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/entity/[1-n]Entity.javai`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vo/${entityName}Page.javai`
-- Vue2：  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue/${entityName}List.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Form.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/[1-n]Form.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3：  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Form.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/[1-n]Form.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3Native：  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}List.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Form.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Modal.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/[1-n]Form.vuei`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__api.tsi`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__data.tsi`  
-  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/V${currentDate}_1__menu_insert_${entityName}.sql`
-
-#### 6.3.5 `erp.onetomany`（一对多 / ERP）
-- Java：  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/controller/${entityName}Controller.javai`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/service/I${entityName}Service.javai`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/${entityName}ServiceImpl.javai`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/service/[1-n]Service.javai`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/[1-n]ServiceImpl.javai`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/mapper/${entityName}Mapper.javai`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/${entityName}Mapper.xml`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/mapper/[1-n]Mapper.javai`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/[1-n]Mapper.xml`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/entity/${entityName}.javai`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/entity/[1-n]Entity.javai`
-- Vue2：  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue/${entityName}List.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue/[1-n]List.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/[1-n]Modal.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3：  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/[1-n]List.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/[1-n]Modal.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3Native：  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}List.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/[1-n]List.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Form.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Modal.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/[1-n]Form.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/[1-n]Modal.vuei`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__api.tsi`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__data.tsi`  
-  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/V${currentDate}_1__menu_insert_${entityName}.sql`
-
-#### 6.3.6 `inner-table.onetomany`（一对多 / 内嵌子表）
-- Java：  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/controller/${entityName}Controller.javai`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/service/I${entityName}Service.javai`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/${entityName}ServiceImpl.javai`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/service/[1-n]Service.javai`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/[1-n]ServiceImpl.javai`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/mapper/${entityName}Mapper.javai`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/${entityName}Mapper.xml`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/mapper/[1-n]Mapper.javai`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/[1-n]Mapper.xml`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/entity/${entityName}.javai`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/entity/[1-n]Entity.javai`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vo/${entityName}Page.javai`
-- Vue2：  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue/${entityName}List.vuei`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Form.vuei`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/[1-n]Form.vuei`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue/subTables/[1-n]SubTable.vuei`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3：  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Form.vuei`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/[1-n]Form.vuei`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/subTables/[1-n]SubTable.vuei`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
-  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
-
-#### 6.3.7 `tab.onetomany`（一对多 / Tab）
-- Java：  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/controller/${entityName}Controller.javai`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/service/I${entityName}Service.javai`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/${entityName}ServiceImpl.javai`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/service/[1-n]Service.javai`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/[1-n]ServiceImpl.javai`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/mapper/${entityName}Mapper.javai`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/${entityName}Mapper.xml`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/mapper/[1-n]Mapper.javai`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/[1-n]Mapper.xml`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/entity/${entityName}.javai`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/entity/[1-n]Entity.javai`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vo/${entityName}Page.javai`
-- Vue2：  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue/${entityName}List.vuei`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Form.vuei`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/[1-n]Form.vuei`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
-- Vue3：  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Form.vuei`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/[1-n]Form.vuei`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
-  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
-
-#### 6.3.8 `common`（公共片段）
-- 初始化：  
-  `common/init/initValue.ftl`  
-  `common/init/initValueSub.ftl`  
-  `common/init/native/vue3NativeInitValue.ftl`  
-  `common/init/native/vue3NativeMainInitValue.ftl`  
-  `common/init/native/vue3NativeSubInitValue.ftl`
-- 表单片段：  
-  `common/form/vue3popup.ftl`  
-  `common/form/vue3Jvxepopup.ftl`  
-  `common/form/native/vue3NativeForm.ftl`  
-  `common/form/native/vue3NativeSearch.ftl`  
-  `common/form/native/vue3NativeComponents.ftl`  
-  `common/form/native/vue3NativeImport.ftl`
-- 校验规则：  
-  `common/validatorRulesTemplate/core.ftl`  
-  `common/validatorRulesTemplate/main.ftl`  
-  `common/validatorRulesTemplate/sub.ftl`  
-  `common/validatorRulesTemplate/sub-vue3.ftl`  
-  `common/validatorRulesTemplate/native/vue3CoreNative.ftl`  
-  `common/validatorRulesTemplate/native/vue3MainNative.ftl`
-- 其它：  
-  `common/utils.ftl`  
-  `common/blob.ftl`  
-  `common/sql/menu_insert.ftl`
-
-## 7. 字段→模板映射要点
-- 主键：`db_is_key=1` → `isKey=Y`
-- 显示：`is_show_form/list/query` → 表单/列表/查询区域，`queryMode`（single/group），`queryShowType` 控件
-- 字典：`dict_field/table/text` 保留，用于生成字典注解或联表
-- 校验：`field_valid_type`、`field_must_input`
-- 默认值：`db_default_val`
-- 外键：`mainTable/mainField` 写入 SubTableVo.foreignKeys/foreignMainKeys
-- 树：head 的 `is_tree`、`tree_parent_id_field/tree_id_field/tree_fieldname` 进入 TableVo.extendParams
-
-## 8. 输出结构（service 分层示例）
-```
-<projectPath>/
-  src/main/java/${packagePath}/controller/${entityName}Controller.java
-  src/main/java/${packagePath}/service/I${entityName}Service.java
-  src/main/java/${packagePath}/service/impl/${entityName}ServiceImpl.java
-  src/main/java/${packagePath}/mapper/${entityName}Mapper.java
-  src/main/resources/mapper/${entityName}Mapper.xml
-  src/main/java/${packagePath}/entity/${entityName}.java
-  src/main/resources/${entityName}-menu.sql (部分模板生成)
-front/
-  src/views/${modulePath}/${EntityName}List.vue 及 modal 组件
-```
-
-## 9. 校验与安全
-- 必须先同步数据库：`is_db_synch=Y`，否则前端拦截/后端也拒绝。
-- 下载/预览受 Redis pathKey 和路径前缀校验保护，防目录穿越。
-- firewall 模式下禁止自定义 projectPath。
-
-## 10. 排错顺序
-1) `onl_cgform_field.db_is_persist=1`、`is_db_synch=Y`
-2) 生成器入参（jspMode/路径/包名/实体名/子表列表）
-3) 服务层映射（ColumnVo 是否含目标字段）
-4) 模板占位符（确认所在模板路径是否被 stylePath 过滤）
-
----
-
-本说明已融合反编译结果与模板源码，可直接对照 `jeecg-decomp/` 与 `code-template-online/` 进行进一步审计。***
-
----
-
-## 11. 使用流程 & 生成链路（Mermaid）
-
-### 11.1 用户操作流程（前端视角）
-```mermaid
-flowchart TD
-  A[进入 Online表单开发页] --> B[点击 新增表单]
-  B --> C[配置表头/字段/控件/字典]
-  C --> D[保存]
-  D --> E[同步数据库 doDbSynch]
-  E --> F[功能测试/预览]
-  E --> G[代码生成弹窗 CodeGenerator]
-  G --> H[提交 codeGenerate]
-  H --> I[下载 ZIP downGenerateCode]
-  I --> J[拷贝前端代码 + 后端代码]
-  J --> K[菜单配置/角色授权]
-  K --> L[上线使用]
-```
-
-### 11.2 后端生成链路（请求到文件）
-```mermaid
-flowchart LR
-  Req[POST /online/cgform/api/codeGenerate] --> Ctl[OnlCgformApiController]
-  Ctl -->|防火墙校验·写Redis pathKey| Svc[OnlCgformHeadService]
-  Svc -->|读 head/field/button/增强| VO[TableVo·ColumnVo·SubTableVo]
-  VO --> Enum[CgformEnum 选模板目录]
-  Enum --> Gen[CodeGenerateOne / OneToMany]
-  Gen -->|FreeMarker 渲染| Files["写入 projectPath\n(src/main/java 和 webapp)"]
-  Files --> Redis[Redis pathKey->projectPath<br/>TTL 1800s]
-  Redis --> DL[POST /downGenerateCode<br/>打包下载]
-```
-
-### 11.3 代码生成输出结构（简版）
+### 5.5 代码生成输出结构（简版）
 ```mermaid
 flowchart TB
   root[projectPath] --> java[src/main/java/<packagePath>]
@@ -464,9 +164,36 @@ flowchart TB
   root --> front[front/src/views/<modulePath>/<EntityName>List.vue 等]
 ```
 
-## 12. 新增表单字段配置与控件类型原理（重点）
+### 5.6 一对多前端差异对照（ERP / Tab / InnerTable / JVXE / 经典）
+> 只对比 Vue2 模板层面的差异，便于选型。
 
-### 12.1 新增表单页面字段 → 后端字段映射（关键项）
+| 模板 | 子表呈现 | 关键前端模板文件 | 说明 |
+| --- | --- | --- | --- |
+| 经典（default.onetomany） | 主表表单 + 子表表单 | `vue/${entityName}List.vuei`、`vue/modules/${entityName}Form.vuei`、`vue/modules/[1-n]Form.vuei` | Vue2 经典一对多 |
+| JVXE（jvxe.onetomany） | JVXE 可编辑表格 | `vue/${entityName}List.vuei`、`vue/modules/${entityName}Form.vuei`、`vue/modules/[1-n]Form.vuei` | 与经典同路径，但组件实现不同 |
+| ERP（erp.onetomany） | 子表列表 + 弹窗 | `vue/${entityName}List.vuei`、`vue/[1-n]List.vuei`、`vue/modules/${entityName}Modal.vuei`、`vue/modules/[1-n]Modal.vuei` | 子表使用列表与弹窗 |
+| InnerTable（inner-table.onetomany） | 子表内嵌 | `vue/subTables/[1-n]SubTable.vuei`、`vue/modules/${entityName}Form.vuei`、`vue/modules/[1-n]Form.vuei` | 子表以内嵌组件渲染 |
+| Tab（tab.onetomany） | 子表 Tab | `vue/modules/${entityName}Form.vuei`、`vue/modules/[1-n]Form.vuei` | 子表以 Tab 切换 |
+
+> 备注：Jvxe/Erp/InnerTable/Tab 的 Vue3/Vue3Native 差异类似，但路径在 `vue3/` 或 `vue3Native/` 下。
+
+## 6. 数据库元数据与字段映射
+
+### 6.1 元数据存储（在线表单配置）
+- 表头：`onl_cgform_head`（表名/类型/模板/树参数/分页/滚动/复制标记/同步标记 is_db_synch 等）
+- 字段：`onl_cgform_field`（db 字段类型、长度、小数、是否主键/必填/查询/列表/表单、控件 showType、字典配置、默认值、校验、href、排序、外键 mainTable/mainField、扩展 JSON）
+- 辅助：`onl_cgform_button`（自定义按钮）、`onl_cgform_enhance_{js,sql,java}`、`onl_cgform_index`
+
+### 6.2 字段 → 模板映射要点
+- 主键：`db_is_key=1` → `isKey=Y`
+- 显示：`is_show_form/list/query` → 表单/列表/查询区域，`queryMode`（single/group），`queryShowType` 控件
+- 字典：`dict_field/table/text` 保留，用于生成字典注解或联表
+- 校验：`field_valid_type`、`field_must_input`
+- 默认值：`db_default_val`
+- 外键：`mainTable/mainField` 写入 SubTableVo.foreignKeys/foreignMainKeys
+- 树：head 的 `is_tree`、`tree_parent_id_field/tree_id_field/tree_fieldname` 进入 TableVo.extendParams
+
+### 6.3 新增表单字段配置（页面 → 数据库映射）
 > 以下是与截图中“新增表单”页面最直接对应的字段；完整字段以实体为准。
 
 **表头配置（onl_cgform_head）**
@@ -506,11 +233,13 @@ flowchart TB
 > 数据库默认值在 `db_default_val`（数据库属性页配置）；  
 > 表单默认值在 `field_default_value`（页面属性页配置）。
 
-### 12.2 控件类型的生成链路（从页面到模板）
+## 7. 控件、校验、字典对代码生成的影响
+
+### 7.1 控件类型的生成链路（从页面到模板）
 **核心链路：**
 1) 新增表单页面选择控件类型 → 写入 `onl_cgform_field.field_show_type`  
 2) 服务层组装 `ColumnVo`：`classType = field_show_type`  
-3) 模板生成时用 `po.classType` 分支输出不同组件  
+3) 模板生成时用 `po.classType` 分支输出不同组件
 
 **关键代码位置：**
 - 赋值位置：`jeecg-decomp/hibernate-re-3.6.1-RC/org/jeecg/modules/online/cgform/service/a/d.java`  
@@ -522,26 +251,26 @@ flowchart TB
 - 高级查询配置：  
   `jeecg-boot/jeecg-module-system/jeecg-system-biz/src/main/resources/jeecg/code-template-online/common/utils.ftl`
 
-### 12.3 控件类型清单（Vue2 模板生成 → 组件 → 源码/文档）
+### 7.2 控件类型清单（Vue2 模板生成 → 组件 → 源码/文档）
 > 以下控件类型来自模板分支（`po.classType`），等价于 `field_show_type`。
 
 | 控件类型值 | Vue2 模板输出 | 组件源码（对照） | 文档位置 |
 | --- | --- | --- | --- |
 | `date` | `<j-date />` | `ant-design-vue-jeecg/src/components/jeecg/JDate.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JDate 日期组件.md` |
-| `datetime` | `<j-date :show-time=\"true\" />` | 同上 | 同上 |
+| `datetime` | `<j-date :show-time="true" />` | 同上 | 同上 |
 | `time` | `<j-time />` | `ant-design-vue-jeecg/src/components/jeecg/JTime.vue` | `docs/jeecg-boot文档中心/Online 表单 VUE2 版/Online表单控件/时间控件.md` |
 | `popup` | `<j-popup />` | `ant-design-vue-jeecg/src/components/jeecg/JPopup.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JPopup弹窗选择组件.md` |
 | `sel_depart` | `<j-select-depart />` | `ant-design-vue-jeecg/src/components/jeecgbiz/JSelectDepart.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JSelectDepart部门选择组件.md` |
 | `sel_user` | `<j-select-user-by-dep />` | `ant-design-vue-jeecg/src/components/jeecgbiz/JSelectUserByDep.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JSelectUserByDep根据部门选择用户.md` |
 | `switch` | `<j-switch />` | `ant-design-vue-jeecg/src/components/jeecg/JSwitch.vue` | `docs/jeecg-boot文档中心/Online 表单 VUE2 版/Online表单控件/开关控件.md` |
-| `pca` | `<j-area-linkage type=\"cascader\" />` | `ant-design-vue-jeecg/src/components/jeecg/JAreaLinkage.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JAreaLinkage省市县三级联动.md` |
+| `pca` | `<j-area-linkage type="cascader" />` | `ant-design-vue-jeecg/src/components/jeecg/JAreaLinkage.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JAreaLinkage省市县三级联动.md` |
 | `markdown` | `<j-markdown-editor />` | `ant-design-vue-jeecg/src/components/jeecg/JMarkdownEditor` | `docs/jeecg-boot文档中心/Online 表单 VUE2 版/Online表单控件/markdown编辑器.md` |
 | `password` | `<a-input-password />` | Ant Design Vue | - |
 | `textarea` | `<a-textarea />` | Ant Design Vue | - |
-| `list` | `<j-dict-select-tag type=\"list\" />` | `ant-design-vue-jeecg/src/components/dict/JDictSelectTag.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JDictSelectTag字典标签.md` |
-| `radio` | `<j-dict-select-tag type=\"radio\" />` | 同上 | 同上 |
-| `list_multi` | `<j-multi-select-tag type=\"list_multi\" />` | `ant-design-vue-jeecg/src/components/dict/JMultiSelectTag.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JMultiSelectTag多选组件.md` |
-| `checkbox` | `<j-multi-select-tag type=\"checkbox\" />` | 同上 | 同上 |
+| `list` | `<j-dict-select-tag type="list" />` | `ant-design-vue-jeecg/src/components/dict/JDictSelectTag.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JDictSelectTag字典标签.md` |
+| `radio` | `<j-dict-select-tag type="radio" />` | 同上 | 同上 |
+| `list_multi` | `<j-multi-select-tag type="list_multi" />` | `ant-design-vue-jeecg/src/components/dict/JMultiSelectTag.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JMultiSelectTag多选组件.md` |
+| `checkbox` | `<j-multi-select-tag type="checkbox" />` | 同上 | 同上 |
 | `sel_search` | `<j-search-select-tag />` | `ant-design-vue-jeecg/src/components/dict/JSearchSelectTag.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JSearchSelectTag字典表的搜索组件.md` |
 | `cat_tree` | `<j-category-select />` | `ant-design-vue-jeecg/src/components/jeecg/JCategorySelect.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JCategorySelect 帮助文档.md` |
 | `sel_tree` | `<j-tree-select />` | `ant-design-vue-jeecg/src/components/jeecg/JTreeSelect.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JTreeSelect树形下拉组件.md` |
@@ -554,7 +283,7 @@ flowchart TB
 > 说明：`number` 实际由 `field_db_type` 决定（`int/double/BigDecimal` → 数字控件），不依赖 `field_show_type`。  
 > 模板中未显式处理的 `field_show_type` 会走默认 `<a-input />`。
 
-### 12.4 控件扩展参数（field_extend_json）如何影响生成
+### 7.3 控件扩展参数（field_extend_json）如何影响生成
 **模板直接读取的扩展字段：**
 - `popupMulti`：popup 是否多选  
   - 模板读取：`po.extendParams.popupMulti`  
@@ -571,12 +300,12 @@ flowchart TB
   - `cat_tree`：使用 `dictField` 作为 pcode  
   - `sel_tree`：使用 `dictTable` + `dictText` 解析 id/pid/label/hasChild
 
-### 12.5 目前模板未显式支持的控件类型
+### 7.4 目前模板未显式支持的控件类型
 `common/utils.ftl` 中有 `link_down` 的排除判断，但 Vue2 表单模板没有专门分支。  
 **结论：**若 `field_show_type = link_down`，代码生成可能退化为默认 `<a-input />`。  
 如果需要该控件的代码生成，必须补齐模板分支。
 
-### 12.6 在线表单 UI 端控件枚举（来自 `antd-online-mini`）
+### 7.5 在线表单 UI 端控件枚举（来自 `antd-online-mini`）
 来源：`ant-design-vue-jeecg/node_modules/@jeecg/antd-online-mini/dist/OnlineForm.umd.min.js`  
 该文件在 UI 端注册了所有可选控件类型（`register(p["c"]+"xxx")`）：
 
@@ -610,7 +339,7 @@ hidden
 rate
 ```
 
-### 12.7 UI 枚举 vs 模板支持对照（代码生成口径）
+### 7.6 UI 枚举 vs 模板支持对照（代码生成口径）
 | 控件类型 | UI 可选 | Vue2 模板显式分支 | 结果 |
 | --- | --- | --- | --- |
 | `text` | ✅ | ❌ | 走默认 `<a-input />` |
@@ -623,9 +352,9 @@ rate
 > 结论：**UI 可选 ≠ 代码生成支持**。  
 > 如果期望“选了控件类型，就能生成对应 Vue2 代码”，必须补齐模板分支（尤其是 `link_down/hidden/rate/number/integer`）。
 
-## 13. 校验规则与字典配置（校验字段页）
+### 7.7 校验规则与字典配置（校验字段页）
 
-### 13.1 校验字段页 → 数据库存储映射
+#### 7.7.1 校验字段页 → 数据库存储映射
 | 页面字段 | 存储字段 | 说明 |
 | --- | --- | --- |
 | 字段名称 | `db_field_name` | 物理字段名 |
@@ -639,7 +368,7 @@ rate
 
 > 说明：数据库属性页中的 `db_is_null`（是否允许为空）也参与必填判断。
 
-### 13.2 校验规则的生成逻辑（Vue2 表单）
+#### 7.7.2 校验规则的生成逻辑（Vue2 表单）
 来源：`code-template-online/common/validatorRulesTemplate/core.ftl`  
 核心逻辑：
 - **必填条件**：`db_is_null=0` 或 `field_valid_type='*'` 或 `field_must_input='1'`
@@ -653,7 +382,7 @@ rate
 - 校验规则定义：  
   `jeecg-boot/jeecg-module-system/jeecg-system-biz/src/main/resources/jeecg/code-template-online/common/validatorRulesTemplate/core.ftl`
 
-### 13.3 字典配置如何影响代码生成（表单 + 列表 + 实体）
+#### 7.7.3 字典配置如何影响代码生成（表单 + 列表 + 实体）
 **1) 表单控件生成（Vue2）**  
 当 `field_show_type` 为 `list/radio/checkbox/list_multi/sel_search` 时：
 - 使用 `dict_table/dict_text/dict_field` 生成 `dictCode`/`dict` 参数  
@@ -677,7 +406,7 @@ rate
 实体模板位置：  
 `jeecg-boot/jeecg-module-system/jeecg-system-biz/src/main/resources/jeecg/code-template-online/default/one/java/${bussiPackage}/${entityPackage}/entity/${entityName}.javai`
 
-### 13.4 字典翻译注解原理（与文档对照）
+#### 7.7.4 字典翻译注解原理（与文档对照）
 参考文档：  
 - `docs/architecture/06-数据库开发/字典注解规范.md`  
 - `docs/jeecg-boot文档中心/后端开发技巧/自定义注解用法/字典翻译注解@Dict.md`
@@ -687,12 +416,12 @@ rate
 - 普通字典：`dicCode` 对应 `sys_dict.dict_code`  
 - 表字典：`dictTable + dicText + dicCode` 指向表名/显示字段/值字段
 
-### 13.5 关键缺口与注意事项
+#### 7.7.5 关键缺口与注意事项
 - `field_href` 在在线表单运行时用于生成超链接 slot，但**代码生成模板未使用**。
 - `number/integer/rate/hidden/link_down` 等控件类型 UI 可选，但 **Vue2 模板未实现**（会退化为 `<a-input />`）。
 - `cat_tree` 属于分类字典树，默认不生成 `@Dict`（列表展示依赖 `dictOptions` 或记录字段映射）。
 
-### 13.6 校验规则编码对照表（配置速查）
+#### 7.7.6 校验规则编码对照表（配置速查）
 > 来源：`code-template-online/common/validatorRulesTemplate/core.ftl`
 
 | field_valid_type | 含义 | 正则/逻辑 | 备注 |
@@ -711,3 +440,264 @@ rate
 | `z` | 整数 | `/^-?\\d+$/` | - |
 | `money` | 金额 | `/^(([1-9][0-9]*)|([0]\\.\\d{0,2}|[1-9][0-9]*\\.\\d{0,2}))$/` | 最多 2 位小数 |
 | 其他非空值 | 自定义正则 | `pattern = field_valid_type` | 直接写正则 |
+
+## 8. 校验与安全、排错顺序
+
+### 8.1 校验与安全
+- 必须先同步数据库：`is_db_synch=Y`，否则前端拦截/后端也拒绝。
+- 下载/预览受 Redis pathKey 和路径前缀校验保护，防目录穿越。
+- firewall 模式下禁止自定义 projectPath。
+
+### 8.2 排错顺序
+1) `onl_cgform_field.db_is_persist=1`、`is_db_synch=Y`
+2) 生成器入参（jspMode/路径/包名/实体名/子表列表）
+3) 服务层映射（ColumnVo 是否含目标字段）
+4) 模板占位符（确认所在模板路径是否被 stylePath 过滤）
+
+---
+
+本说明已融合反编译结果与模板源码，可直接对照 `jeecg-decomp/` 与 `code-template-online/` 进行进一步审计。
+
+## 9. 附录：模板文件清单（完整）
+> `*.javai`/`*.vuei` 是 FreeMarker 模板文件后缀；`[1-n]` 代表子表实体占位符。
+
+### 9.1 `default.one`（单表 / 经典）
+- Java：  
+  `default/one/java/${bussiPackage}/${entityPackage}/controller/${entityName}Controller.javai`  
+  `default/one/java/${bussiPackage}/${entityPackage}/service/I${entityName}Service.javai`  
+  `default/one/java/${bussiPackage}/${entityPackage}/service/impl/${entityName}ServiceImpl.javai`  
+  `default/one/java/${bussiPackage}/${entityPackage}/mapper/${entityName}Mapper.javai`  
+  `default/one/java/${bussiPackage}/${entityPackage}/mapper/xml/${entityName}Mapper.xml`  
+  `default/one/java/${bussiPackage}/${entityPackage}/entity/${entityName}.javai`
+- Vue2：  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue/${entityName}List.vuei`  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Form.vuei`  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal__Style#Drawer.vuei`  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
+- Vue3：  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Form.vuei`  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
+- Vue3Native：  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}List.vuei`  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Form.vuei`  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Modal.vuei`  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__api.tsi`  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__data.tsi`  
+  `default/one/java/${bussiPackage}/${entityPackage}/vue3Native/V${currentDate}_1__menu_insert_${entityName}.sql`
+- UniApp：  
+  `default/one/java/${bussiPackage}/${entityPackage}/uniapp/${entityName}List.vue`  
+  `default/one/java/${bussiPackage}/${entityPackage}/uniapp/${entityName}Form.vue`
+
+### 9.2 `default.tree`（树表 / 经典）
+- Java：  
+  `default/tree/java/${bussiPackage}/${entityPackage}/controller/${entityName}Controller.javai`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/service/I${entityName}Service.javai`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/service/impl/${entityName}ServiceImpl.javai`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/mapper/${entityName}Mapper.javai`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/mapper/xml/${entityName}Mapper.xml`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/entity/${entityName}.javai`
+- Vue2：  
+  `default/tree/java/${bussiPackage}/${entityPackage}/vue/${entityName}List.vuei`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
+- Vue3：  
+  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Form.vuei`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
+- Vue3Native：  
+  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}List.vuei`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Form.vuei`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Modal.vuei`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__api.tsi`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__data.tsi`  
+  `default/tree/java/${bussiPackage}/${entityPackage}/vue3Native/V${currentDate}_1__menu_insert_${entityName}.sql`
+
+### 9.3 `default.onetomany`（一对多 / 经典）
+- Java：  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/controller/${entityName}Controller.javai`  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/service/I${entityName}Service.javai`  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/${entityName}ServiceImpl.javai`  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/service/[1-n]Service.javai`  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/[1-n]ServiceImpl.javai`  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/mapper/${entityName}Mapper.javai`  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/${entityName}Mapper.xml`  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/mapper/[1-n]Mapper.javai`  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/[1-n]Mapper.xml`  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/entity/${entityName}.javai`  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/entity/[1-n]Entity.javai`  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/vo/${entityName}Page.javai`
+- Vue2：  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/vue/${entityName}List.vuei`  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Form.vuei`  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/[1-n]Form.vuei`  
+  `default/onetomany/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
+
+### 9.4 `jvxe.onetomany`（一对多 / JVXE）
+- Java：  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/controller/${entityName}Controller.javai`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/service/I${entityName}Service.javai`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/${entityName}ServiceImpl.javai`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/service/[1-n]Service.javai`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/[1-n]ServiceImpl.javai`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/mapper/${entityName}Mapper.javai`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/${entityName}Mapper.xml`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/mapper/[1-n]Mapper.javai`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/[1-n]Mapper.xml`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/entity/${entityName}.javai`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/entity/[1-n]Entity.javai`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vo/${entityName}Page.javai`
+- Vue2：  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue/${entityName}List.vuei`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Form.vuei`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/[1-n]Form.vuei`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
+- Vue3：  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Form.vuei`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/[1-n]Form.vuei`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
+- Vue3Native：  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}List.vuei`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Form.vuei`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Modal.vuei`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/[1-n]Form.vuei`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__api.tsi`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__data.tsi`  
+  `jvxe/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/V${currentDate}_1__menu_insert_${entityName}.sql`
+
+### 9.5 `erp.onetomany`（一对多 / ERP）
+- Java：  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/controller/${entityName}Controller.javai`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/service/I${entityName}Service.javai`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/${entityName}ServiceImpl.javai`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/service/[1-n]Service.javai`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/[1-n]ServiceImpl.javai`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/mapper/${entityName}Mapper.javai`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/${entityName}Mapper.xml`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/mapper/[1-n]Mapper.javai`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/[1-n]Mapper.xml`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/entity/${entityName}.javai`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/entity/[1-n]Entity.javai`
+- Vue2：  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue/${entityName}List.vuei`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue/[1-n]List.vuei`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/[1-n]Modal.vuei`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
+- Vue3：  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/[1-n]List.vuei`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/[1-n]Modal.vuei`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
+- Vue3Native：  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}List.vuei`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/[1-n]List.vuei`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Form.vuei`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/${entityName}Modal.vuei`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/[1-n]Form.vuei`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/components/[1-n]Modal.vuei`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__api.tsi`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/${entityName}__data.tsi`  
+  `erp/onetomany/java/${bussiPackage}/${entityPackage}/vue3Native/V${currentDate}_1__menu_insert_${entityName}.sql`
+
+### 9.6 `inner-table.onetomany`（一对多 / 内嵌子表）
+- Java：  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/controller/${entityName}Controller.javai`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/service/I${entityName}Service.javai`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/${entityName}ServiceImpl.javai`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/service/[1-n]Service.javai`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/[1-n]ServiceImpl.javai`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/mapper/${entityName}Mapper.javai`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/${entityName}Mapper.xml`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/mapper/[1-n]Mapper.javai`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/[1-n]Mapper.xml`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/entity/${entityName}.javai`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/entity/[1-n]Entity.javai`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vo/${entityName}Page.javai`
+- Vue2：  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue/${entityName}List.vuei`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Form.vuei`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/[1-n]Form.vuei`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue/subTables/[1-n]SubTable.vuei`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
+- Vue3：  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Form.vuei`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/[1-n]Form.vuei`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/subTables/[1-n]SubTable.vuei`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
+  `inner-table/onetomany/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
+
+### 9.7 `tab.onetomany`（一对多 / Tab）
+- Java：  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/controller/${entityName}Controller.javai`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/service/I${entityName}Service.javai`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/${entityName}ServiceImpl.javai`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/service/[1-n]Service.javai`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/service/impl/[1-n]ServiceImpl.javai`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/mapper/${entityName}Mapper.javai`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/${entityName}Mapper.xml`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/mapper/[1-n]Mapper.javai`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/mapper/xml/[1-n]Mapper.xml`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/entity/${entityName}.javai`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/entity/[1-n]Entity.javai`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vo/${entityName}Page.javai`
+- Vue2：  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue/${entityName}List.vuei`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Form.vuei`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Modal.vuei`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue/modules/[1-n]Form.vuei`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue/V${currentDate}_1__menu_insert_${entityName}.sql`
+- Vue3：  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}List.vuei`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Form.vuei`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/${entityName}Modal.vuei`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/components/[1-n]Form.vuei`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__api.tsi`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/${entityName}__data.tsi`  
+  `tab/onetomany/java/${bussiPackage}/${entityPackage}/vue3/V${currentDate}_1__menu_insert_${entityName}.sql`
+
+### 9.8 `common`（公共片段）
+- 初始化：  
+  `common/init/initValue.ftl`  
+  `common/init/initValueSub.ftl`  
+  `common/init/native/vue3NativeInitValue.ftl`  
+  `common/init/native/vue3NativeMainInitValue.ftl`  
+  `common/init/native/vue3NativeSubInitValue.ftl`
+- 表单片段：  
+  `common/form/vue3popup.ftl`  
+  `common/form/vue3Jvxepopup.ftl`  
+  `common/form/native/vue3NativeForm.ftl`  
+  `common/form/native/vue3NativeSearch.ftl`  
+  `common/form/native/vue3NativeComponents.ftl`  
+  `common/form/native/vue3NativeImport.ftl`
+- 校验规则：  
+  `common/validatorRulesTemplate/core.ftl`  
+  `common/validatorRulesTemplate/main.ftl`  
+  `common/validatorRulesTemplate/sub.ftl`  
+  `common/validatorRulesTemplate/sub-vue3.ftl`  
+  `common/validatorRulesTemplate/native/vue3CoreNative.ftl`  
+  `common/validatorRulesTemplate/native/vue3MainNative.ftl`
+- 其它：  
+  `common/utils.ftl`  
+  `common/blob.ftl`  
+  `common/sql/menu_insert.ftl`
