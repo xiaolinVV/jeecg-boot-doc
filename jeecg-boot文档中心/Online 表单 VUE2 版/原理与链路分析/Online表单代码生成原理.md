@@ -463,3 +463,162 @@ flowchart TB
   root --> menu[src/main/resources/<entityName>-menu.sql]
   root --> front[front/src/views/<modulePath>/<EntityName>List.vue 等]
 ```
+
+## 12. 新增表单字段配置与控件类型原理（重点）
+
+### 12.1 新增表单页面字段 → 后端字段映射（关键项）
+> 以下是与截图中“新增表单”页面最直接对应的字段；完整字段以实体为准。
+
+**表头配置（onl_cgform_head）**
+| 页面字段 | 存储字段 | 说明 |
+| --- | --- | --- |
+| 表名 | `table_name` | 物理表名 |
+| 表描述 | `table_txt` | 表中文描述 |
+| 表类型 | `table_type` | 单表 / 一对多 / 树表等 |
+| 表单分类 | `form_category` | 表单分类 |
+| 主键策略 | `id_type` | 主键策略 |
+| 显示复选框 | `is_checkbox` | 列表是否显示复选框 |
+| 主题模板 | `theme_template` | 主题样式 |
+| 表单风格 | `form_template` | 表单布局风格 |
+| 滚动条 | `scroll` | 列表滚动条开关 |
+| 是否分页 | `is_page` | 列表分页开关 |
+| 是否树 | `is_tree` | 树表开关 |
+| 扩展配置 | `ext_config_json` | 扩展 JSON |
+
+**字段配置（onl_cgform_field）**
+| 页面字段 | 存储字段 | 说明 |
+| --- | --- | --- |
+| 字段名称 | `db_field_name` | 物理字段名 |
+| 字段备注 | `db_field_txt` | 中文名 |
+| 表单显示 | `is_show_form` | 是否在表单显示 |
+| 列表显示 | `is_show_list` | 是否在列表显示 |
+| 是否排序 | `sort_flag` | 是否支持排序 |
+| 是否只读 | `is_read_only` | 只读控制 |
+| 控件类型 | `field_show_type` | 控件类型（核心） |
+| 控件长度 | `field_length` | 表单展示长度 |
+| 是否查询 | `is_query` | 是否出现在查询区 |
+| 查询类型 | `query_mode` | 单条件/范围 |
+| 控件默认值 | `field_default_value` | 表单默认值 |
+| 扩展参数 | `field_extend_json` | 控件扩展 JSON |
+| 自定义转换器 | `converter` | 导入导出/转换器 |
+| 校验规则 | `field_valid_type` / `field_must_input` | 校验 |
+
+> 数据库默认值在 `db_default_val`（数据库属性页配置）；  
+> 表单默认值在 `field_default_value`（页面属性页配置）。
+
+### 12.2 控件类型的生成链路（从页面到模板）
+**核心链路：**
+1) 新增表单页面选择控件类型 → 写入 `onl_cgform_field.field_show_type`  
+2) 服务层组装 `ColumnVo`：`classType = field_show_type`  
+3) 模板生成时用 `po.classType` 分支输出不同组件  
+
+**关键代码位置：**
+- 赋值位置：`jeecg-decomp/hibernate-re-3.6.1-RC/org/jeecg/modules/online/cgform/service/a/d.java`  
+  `columnVo.setClassType(onlCgformField.getFieldShowType())`
+- 表单模板：  
+  `jeecg-boot/jeecg-module-system/jeecg-system-biz/src/main/resources/jeecg/code-template-online/default/one/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Form.vuei`
+- 查询模板：  
+  `jeecg-boot/jeecg-module-system/jeecg-system-biz/src/main/resources/jeecg/code-template-online/default/one/java/${bussiPackage}/${entityPackage}/vue/${entityName}List.vuei`
+- 高级查询配置：  
+  `jeecg-boot/jeecg-module-system/jeecg-system-biz/src/main/resources/jeecg/code-template-online/common/utils.ftl`
+
+### 12.3 控件类型清单（Vue2 模板生成 → 组件 → 源码/文档）
+> 以下控件类型来自模板分支（`po.classType`），等价于 `field_show_type`。
+
+| 控件类型值 | Vue2 模板输出 | 组件源码（对照） | 文档位置 |
+| --- | --- | --- | --- |
+| `date` | `<j-date />` | `ant-design-vue-jeecg/src/components/jeecg/JDate.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JDate 日期组件.md` |
+| `datetime` | `<j-date :show-time=\"true\" />` | 同上 | 同上 |
+| `time` | `<j-time />` | `ant-design-vue-jeecg/src/components/jeecg/JTime.vue` | `docs/jeecg-boot文档中心/Online 表单 VUE2 版/Online表单控件/时间控件.md` |
+| `popup` | `<j-popup />` | `ant-design-vue-jeecg/src/components/jeecg/JPopup.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JPopup弹窗选择组件.md` |
+| `sel_depart` | `<j-select-depart />` | `ant-design-vue-jeecg/src/components/jeecgbiz/JSelectDepart.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JSelectDepart部门选择组件.md` |
+| `sel_user` | `<j-select-user-by-dep />` | `ant-design-vue-jeecg/src/components/jeecgbiz/JSelectUserByDep.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JSelectUserByDep根据部门选择用户.md` |
+| `switch` | `<j-switch />` | `ant-design-vue-jeecg/src/components/jeecg/JSwitch.vue` | `docs/jeecg-boot文档中心/Online 表单 VUE2 版/Online表单控件/开关控件.md` |
+| `pca` | `<j-area-linkage type=\"cascader\" />` | `ant-design-vue-jeecg/src/components/jeecg/JAreaLinkage.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JAreaLinkage省市县三级联动.md` |
+| `markdown` | `<j-markdown-editor />` | `ant-design-vue-jeecg/src/components/jeecg/JMarkdownEditor` | `docs/jeecg-boot文档中心/Online 表单 VUE2 版/Online表单控件/markdown编辑器.md` |
+| `password` | `<a-input-password />` | Ant Design Vue | - |
+| `textarea` | `<a-textarea />` | Ant Design Vue | - |
+| `list` | `<j-dict-select-tag type=\"list\" />` | `ant-design-vue-jeecg/src/components/dict/JDictSelectTag.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JDictSelectTag字典标签.md` |
+| `radio` | `<j-dict-select-tag type=\"radio\" />` | 同上 | 同上 |
+| `list_multi` | `<j-multi-select-tag type=\"list_multi\" />` | `ant-design-vue-jeecg/src/components/dict/JMultiSelectTag.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JMultiSelectTag多选组件.md` |
+| `checkbox` | `<j-multi-select-tag type=\"checkbox\" />` | 同上 | 同上 |
+| `sel_search` | `<j-search-select-tag />` | `ant-design-vue-jeecg/src/components/dict/JSearchSelectTag.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JSearchSelectTag字典表的搜索组件.md` |
+| `cat_tree` | `<j-category-select />` | `ant-design-vue-jeecg/src/components/jeecg/JCategorySelect.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JCategorySelect 帮助文档.md` |
+| `sel_tree` | `<j-tree-select />` | `ant-design-vue-jeecg/src/components/jeecg/JTreeSelect.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JTreeSelect树形下拉组件.md` |
+| `file` | `<j-upload />` | `ant-design-vue-jeecg/src/components/jeecg/JUpload.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JUpload上传组件.md` |
+| `image` | `<j-image-upload />` | `ant-design-vue-jeecg/src/components/jeecg/JImageUpload.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JImageUpload图片上传组件.md` |
+| `umeditor` | `<j-editor />` | `ant-design-vue-jeecg/src/components/jeecg/JEditor.vue` | `docs/jeecg-boot文档中心/Online 表单 VUE2 版/Online表单控件/富文本控件.md` |
+| `default` | `<a-input />` | Ant Design Vue | - |
+| `number` | `<a-input-number />` | Ant Design Vue | - |
+
+> 说明：`number` 实际由 `field_db_type` 决定（`int/double/BigDecimal` → 数字控件），不依赖 `field_show_type`。  
+> 模板中未显式处理的 `field_show_type` 会走默认 `<a-input />`。
+
+### 12.4 控件扩展参数（field_extend_json）如何影响生成
+**模板直接读取的扩展字段：**
+- `popupMulti`：popup 是否多选  
+  - 模板读取：`po.extendParams.popupMulti`  
+  - 若未配置，后端兜底为 `false`
+- `multi / store / text`：部门/用户选择组件的参数  
+  - 模板读取：`po.extendParams.multi` / `store` / `text`
+- `uploadnum`：文件/图片上传数量  
+  - 模板读取：`po.uploadnum` → `<j-upload :number=...>` / `<j-image-upload :number=...>`
+
+**模板使用的字典字段：**
+- 字典类组件（list/radio/checkbox/list_multi/sel_search）  
+  - 依赖 `dictField/dictTable/dictText` 生成 `dictCode` 或 `dict` 参数
+- 树类组件  
+  - `cat_tree`：使用 `dictField` 作为 pcode  
+  - `sel_tree`：使用 `dictTable` + `dictText` 解析 id/pid/label/hasChild
+
+### 12.5 目前模板未显式支持的控件类型
+`common/utils.ftl` 中有 `link_down` 的排除判断，但 Vue2 表单模板没有专门分支。  
+**结论：**若 `field_show_type = link_down`，代码生成可能退化为默认 `<a-input />`。  
+如果需要该控件的代码生成，必须补齐模板分支。
+
+### 12.6 在线表单 UI 端控件枚举（来自 `antd-online-mini`）
+来源：`ant-design-vue-jeecg/node_modules/@jeecg/antd-online-mini/dist/OnlineForm.umd.min.js`  
+该文件在 UI 端注册了所有可选控件类型（`register(p["c"]+"xxx")`）：
+
+```
+text
+number
+integer
+password
+date
+datetime
+time
+textarea
+list
+radio
+checkbox
+list_multi
+sel_search
+sel_depart
+sel_user
+sel_tree
+cat_tree
+popup
+switch
+file
+image
+umeditor
+markdown
+pca
+link_down
+hidden
+rate
+```
+
+### 12.7 UI 枚举 vs 模板支持对照（代码生成口径）
+| 控件类型 | UI 可选 | Vue2 模板显式分支 | 结果 |
+| --- | --- | --- | --- |
+| `text` | ✅ | ❌ | 走默认 `<a-input />` |
+| `number` / `integer` | ✅ | ❌ | **不会**走 `<a-input-number />`（模板按 DB 类型判断），会退化 |
+| `rate` | ✅ | ❌ | 退化为 `<a-input />` |
+| `hidden` | ✅ | ❌ | 无隐藏逻辑，需自行补模板 |
+| `link_down` | ✅ | ❌（仅在 `utils.ftl` 排除） | 退化 |
+| 其余（list/radio/checkbox/.../popup/markdown/umeditor 等） | ✅ | ✅ | 正常生成 |
+
+> 结论：**UI 可选 ≠ 代码生成支持**。  
+> 如果期望“选了控件类型，就能生成对应 Vue2 代码”，必须补齐模板分支（尤其是 `link_down/hidden/rate/number/integer`）。
