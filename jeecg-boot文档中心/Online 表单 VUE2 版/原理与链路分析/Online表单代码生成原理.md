@@ -253,31 +253,31 @@ flowchart TB
 ### 7.2 控件类型清单（Vue2 模板生成 → 组件 → 源码/文档）
 > 以下控件类型来自模板分支（`po.classType`），等价于 `field_show_type`。
 
-| 控件类型值 | Vue2 模板输出 | 组件源码（对照） | 文档位置 |
-| --- | --- | --- | --- |
-| `date` | `<j-date />` | `ant-design-vue-jeecg/src/components/jeecg/JDate.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JDate 日期组件.md` |
-| `datetime` | `<j-date :show-time="true" />` | 同上 | 同上 |
-| `time` | `<j-time />` | `ant-design-vue-jeecg/src/components/jeecg/JTime.vue` | `docs/jeecg-boot文档中心/Online 表单 VUE2 版/Online表单控件/时间控件.md` |
-| `popup` | `<j-popup />` | `ant-design-vue-jeecg/src/components/jeecg/JPopup.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JPopup弹窗选择组件.md` |
-| `sel_depart` | `<j-select-depart />` | `ant-design-vue-jeecg/src/components/jeecgbiz/JSelectDepart.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JSelectDepart部门选择组件.md` |
-| `sel_user` | `<j-select-user-by-dep />` | `ant-design-vue-jeecg/src/components/jeecgbiz/JSelectUserByDep.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JSelectUserByDep根据部门选择用户.md` |
-| `switch` | `<j-switch />` | `ant-design-vue-jeecg/src/components/jeecg/JSwitch.vue` | `docs/jeecg-boot文档中心/Online 表单 VUE2 版/Online表单控件/开关控件.md` |
-| `pca` | `<j-area-linkage type="cascader" />` | `ant-design-vue-jeecg/src/components/jeecg/JAreaLinkage.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JAreaLinkage省市县三级联动.md` |
-| `markdown` | `<j-markdown-editor />` | `ant-design-vue-jeecg/src/components/jeecg/JMarkdownEditor` | `docs/jeecg-boot文档中心/Online 表单 VUE2 版/Online表单控件/markdown编辑器.md` |
-| `password` | `<a-input-password />` | Ant Design Vue | - |
-| `textarea` | `<a-textarea />` | Ant Design Vue | - |
-| `list` | `<j-dict-select-tag type="list" />` | `ant-design-vue-jeecg/src/components/dict/JDictSelectTag.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JDictSelectTag字典标签.md` |
-| `radio` | `<j-dict-select-tag type="radio" />` | 同上 | 同上 |
-| `list_multi` | `<j-multi-select-tag type="list_multi" />` | `ant-design-vue-jeecg/src/components/dict/JMultiSelectTag.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JMultiSelectTag多选组件.md` |
-| `checkbox` | `<j-multi-select-tag type="checkbox" />` | 同上 | 同上 |
-| `sel_search` | `<j-search-select-tag />` | `ant-design-vue-jeecg/src/components/dict/JSearchSelectTag.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JSearchSelectTag字典表的搜索组件.md` |
-| `cat_tree` | `<j-category-select />` | `ant-design-vue-jeecg/src/components/jeecg/JCategorySelect.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JCategorySelect 帮助文档.md` |
-| `sel_tree` | `<j-tree-select />` | `ant-design-vue-jeecg/src/components/jeecg/JTreeSelect.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JTreeSelect树形下拉组件.md` |
-| `file` | `<j-upload />` | `ant-design-vue-jeecg/src/components/jeecg/JUpload.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JUpload上传组件.md` |
-| `image` | `<j-image-upload />` | `ant-design-vue-jeecg/src/components/jeecg/JImageUpload.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JImageUpload图片上传组件.md` |
-| `umeditor` | `<j-editor />` | `ant-design-vue-jeecg/src/components/jeecg/JEditor.vue` | `docs/jeecg-boot文档中心/Online 表单 VUE2 版/Online表单控件/富文本控件.md` |
-| `default` | `<a-input />` | Ant Design Vue | - |
-| `number` | `<a-input-number />` | Ant Design Vue | - |
+| 控件名称 | 控件类型值 | Vue2 模板输出 | 组件源码（对照） | 文档位置 |
+| --- | --- | --- | --- | --- |
+| 日期 | `date` | `<j-date />` | `ant-design-vue-jeecg/src/components/jeecg/JDate.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JDate 日期组件.md` |
+| 日期时间 | `datetime` | `<j-date :show-time="true" />` | 同上 | 同上 |
+| 时间 | `time` | `<j-time />` | `ant-design-vue-jeecg/src/components/jeecg/JTime.vue` | `docs/jeecg-boot文档中心/Online 表单 VUE2 版/Online表单控件/时间控件.md` |
+| 弹窗选择 | `popup` | `<j-popup />` | `ant-design-vue-jeecg/src/components/jeecg/JPopup.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JPopup弹窗选择组件.md` |
+| 部门选择 | `sel_depart` | `<j-select-depart />` | `ant-design-vue-jeecg/src/components/jeecgbiz/JSelectDepart.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JSelectDepart部门选择组件.md` |
+| 用户选择 | `sel_user` | `<j-select-user-by-dep />` | `ant-design-vue-jeecg/src/components/jeecgbiz/JSelectUserByDep.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JSelectUserByDep根据部门选择用户.md` |
+| 开关 | `switch` | `<j-switch />` | `ant-design-vue-jeecg/src/components/jeecg/JSwitch.vue` | `docs/jeecg-boot文档中心/Online 表单 VUE2 版/Online表单控件/开关控件.md` |
+| 省市区 | `pca` | `<j-area-linkage type="cascader" />` | `ant-design-vue-jeecg/src/components/jeecg/JAreaLinkage.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JAreaLinkage省市县三级联动.md` |
+| Markdown编辑器 | `markdown` | `<j-markdown-editor />` | `ant-design-vue-jeecg/src/components/jeecg/JMarkdownEditor` | `docs/jeecg-boot文档中心/Online 表单 VUE2 版/Online表单控件/markdown编辑器.md` |
+| 密码 | `password` | `<a-input-password />` | Ant Design Vue | - |
+| 多行文本 | `textarea` | `<a-textarea />` | Ant Design Vue | - |
+| 下拉框 | `list` | `<j-dict-select-tag type="list" />` | `ant-design-vue-jeecg/src/components/dict/JDictSelectTag.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JDictSelectTag字典标签.md` |
+| 单选框 | `radio` | `<j-dict-select-tag type="radio" />` | 同上 | 同上 |
+| 多选下拉 | `list_multi` | `<j-multi-select-tag type="list_multi" />` | `ant-design-vue-jeecg/src/components/dict/JMultiSelectTag.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JMultiSelectTag多选组件.md` |
+| 复选框 | `checkbox` | `<j-multi-select-tag type="checkbox" />` | 同上 | 同上 |
+| 搜索下拉 | `sel_search` | `<j-search-select-tag />` | `ant-design-vue-jeecg/src/components/dict/JSearchSelectTag.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JSearchSelectTag字典表的搜索组件.md` |
+| 分类字典 | `cat_tree` | `<j-category-select />` | `ant-design-vue-jeecg/src/components/jeecg/JCategorySelect.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JCategorySelect 帮助文档.md` |
+| 树形下拉 | `sel_tree` | `<j-tree-select />` | `ant-design-vue-jeecg/src/components/jeecg/JTreeSelect.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JTreeSelect树形下拉组件.md` |
+| 文件上传 | `file` | `<j-upload />` | `ant-design-vue-jeecg/src/components/jeecg/JUpload.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JUpload上传组件.md` |
+| 图片上传 | `image` | `<j-image-upload />` | `ant-design-vue-jeecg/src/components/jeecg/JImageUpload.vue` | `docs/jeecg-boot文档中心/VUE2 前端开发/自定义组件/JImageUpload图片上传组件.md` |
+| 富文本 | `umeditor` | `<j-editor />` | `ant-design-vue-jeecg/src/components/jeecg/JEditor.vue` | `docs/jeecg-boot文档中心/Online 表单 VUE2 版/Online表单控件/富文本控件.md` |
+| 文本框 | `default` | `<a-input />` | Ant Design Vue | - |
+| 数字框 | `number` | `<a-input-number />` | Ant Design Vue | - |
 
 > 说明：`number` 实际由 `field_db_type` 决定（`int/double/BigDecimal` → 数字控件），不依赖 `field_show_type`。  
 > 模板中未显式处理的 `field_show_type` 会走默认 `<a-input />`。
