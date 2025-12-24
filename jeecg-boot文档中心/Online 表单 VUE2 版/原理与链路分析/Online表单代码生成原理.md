@@ -622,3 +622,92 @@ rate
 
 > 结论：**UI 可选 ≠ 代码生成支持**。  
 > 如果期望“选了控件类型，就能生成对应 Vue2 代码”，必须补齐模板分支（尤其是 `link_down/hidden/rate/number/integer`）。
+
+## 13. 校验规则与字典配置（校验字段页）
+
+### 13.1 校验字段页 → 数据库存储映射
+| 页面字段 | 存储字段 | 说明 |
+| --- | --- | --- |
+| 字段名称 | `db_field_name` | 物理字段名 |
+| 字段备注 | `db_field_txt` | 字段中文名 |
+| 字段 Href | `field_href` | 字段超链接配置（在线表单/报表使用，代码生成模板不消费） |
+| 验证规则 | `field_valid_type` | 校验规则编码 |
+| 校验必填 | `field_must_input` | 是否必填（1=必填） |
+| 字典 Table | `dict_table` | 表字典表名 |
+| 字典 Code | `dict_field` | 字典值字段（普通字典为 dict_code；表字典为值字段） |
+| 字典 Text | `dict_text` | 表字典显示字段 |
+
+> 说明：数据库属性页中的 `db_is_null`（是否允许为空）也参与必填判断。
+
+### 13.2 校验规则的生成逻辑（Vue2 表单）
+来源：`code-template-online/common/validatorRulesTemplate/core.ftl`  
+核心逻辑：
+- **必填条件**：`db_is_null=0` 或 `field_valid_type='*'` 或 `field_must_input='1'`
+- **唯一校验**：`field_valid_type='only'` → 生成 `validateDuplicateValue(...)` 远程校验
+- **内置正则**：`n6-16` / `*6-16` / `s6-18` / `url` / `e` / `m` / `p` / `s` / `n` / `z` / `money`
+- **自定义正则**：`field_valid_type` 非空且非 `*` 时直接作为正则
+
+**模板落点：**
+- Vue2 表单模板：  
+  `jeecg-boot/jeecg-module-system/jeecg-system-biz/src/main/resources/jeecg/code-template-online/default/one/java/${bussiPackage}/${entityPackage}/vue/modules/${entityName}Form.vuei`
+- 校验规则定义：  
+  `jeecg-boot/jeecg-module-system/jeecg-system-biz/src/main/resources/jeecg/code-template-online/common/validatorRulesTemplate/core.ftl`
+
+### 13.3 字典配置如何影响代码生成（表单 + 列表 + 实体）
+**1) 表单控件生成（Vue2）**  
+当 `field_show_type` 为 `list/radio/checkbox/list_multi/sel_search` 时：
+- 使用 `dict_table/dict_text/dict_field` 生成 `dictCode`/`dict` 参数  
+- 模板：`default/one/.../vue/modules/${entityName}Form.vuei`  
+  - `<j-dict-select-tag />`、`<j-multi-select-tag />`、`<j-search-select-tag />`
+
+**2) 列表显示（字典翻译）**  
+`default/one/.../vue/${entityName}List.vuei` 中：
+- 字典类字段的列 `dataIndex` 使用 `${fieldName}_dictText`
+- 依赖后端 `@Dict` 注解翻译生成 `_dictText` 字段
+
+**3) 实体注解生成（@Dict + @Excel）**  
+实体模板在以下场景自动生成 `@Dict` 和 Excel 字典参数：
+- `list/list_multi/sel_search/radio/checkbox`  
+  - 普通字典：`@Dict(dicCode = dict_field)`  
+  - 表字典：`@Dict(dicCode=dict_field, dicText=dict_text, dictTable=dict_table)`
+- `sel_user`：`@Dict(dictTable="sys_user", dicText=extendParams.text默认realname, dicCode=extendParams.store默认username)`
+- `sel_depart`：`@Dict(dictTable="sys_depart", dicText=extendParams.text默认depart_name, dicCode=extendParams.store默认id)`
+- `sel_tree`：从 `dict_text` 里解析 `id,pid,name,has_child`，生成 `dictTable/dicText/dicCode`
+
+实体模板位置：  
+`jeecg-boot/jeecg-module-system/jeecg-system-biz/src/main/resources/jeecg/code-template-online/default/one/java/${bussiPackage}/${entityPackage}/entity/${entityName}.javai`
+
+### 13.4 字典翻译注解原理（与文档对照）
+参考文档：  
+- `docs/architecture/06-数据库开发/字典注解规范.md`  
+- `docs/jeecg-boot文档中心/后端开发技巧/自定义注解用法/字典翻译注解@Dict.md`
+
+核心结论：
+- `@Dict` 会在返回 JSON 中追加 `${fieldName}_dictText`（前端列表直接使用）  
+- 普通字典：`dicCode` 对应 `sys_dict.dict_code`  
+- 表字典：`dictTable + dicText + dicCode` 指向表名/显示字段/值字段
+
+### 13.5 关键缺口与注意事项
+- `field_href` 在在线表单运行时用于生成超链接 slot，但**代码生成模板未使用**。
+- `number/integer/rate/hidden/link_down` 等控件类型 UI 可选，但 **Vue2 模板未实现**（会退化为 `<a-input />`）。
+- `cat_tree` 属于分类字典树，默认不生成 `@Dict`（列表展示依赖 `dictOptions` 或记录字段映射）。
+
+### 13.6 校验规则编码对照表（配置速查）
+> 来源：`code-template-online/common/validatorRulesTemplate/core.ftl`
+
+| field_valid_type | 含义 | 正则/逻辑 | 备注 |
+| --- | --- | --- | --- |
+| `*` | 必填 | `required: true` | 与 `db_is_null=0` / `field_must_input=1` 等价 |
+| `only` | 唯一 | `validateDuplicateValue(...)` | 远程校验 |
+| `n6-16` | 6-16 位数字 | `/^\\d{6,16}$/` | - |
+| `*6-16` | 6-16 位任意字符 | `/^.{6,16}$/` | - |
+| `s6-18` | 6-18 位任意字符 | `/^.{6,18}$/` | - |
+| `url` | 网址 | `/^((ht|f)tps?):\\/\\/[\\w\\-]+(\\.[\\w\\-]+)+([\\w\\-.,@?^=%&:\\/~+#]*[\\w\\-@?^=%&\\/~+#])?$/` | - |
+| `e` | 电子邮件 | `/^([\\w]+\\.*)([\\w]+)@[\\w]+\\.\\w{3}(\\.\\w{2}|)$/` | - |
+| `m` | 手机号码 | `/^1[3456789]\\d{9}$/` | - |
+| `p` | 邮政编码 | `/^[0-9]\\d{5}$/` | - |
+| `s` | 字母 | `/^[A-Z|a-z]+$/` | - |
+| `n` | 数字 | `/^-?\\d+\\.?\\d*$/` | 含小数 |
+| `z` | 整数 | `/^-?\\d+$/` | - |
+| `money` | 金额 | `/^(([1-9][0-9]*)|([0]\\.\\d{0,2}|[1-9][0-9]*\\.\\d{0,2}))$/` | 最多 2 位小数 |
+| 其他非空值 | 自定义正则 | `pattern = field_valid_type` | 直接写正则 |
