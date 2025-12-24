@@ -86,7 +86,57 @@
 - `tab/onetomany`：一对多（子表 Tab）
 - `common/`：公共 FreeMarker 片段（表单、校验、初始化、SQL 片段）
 
-### 6.3 各模板对应的模板文件清单（相对 `code-template-online/`）
+### 6.3 模板选择速查表（jspMode/jformType/输出结构）
+> 目的：不看源码就能快速选模板，避免“选错风格导致生成结构不匹配”。
+
+| jformType | jspMode | 结构类型 | 后端输出（典型） | 前端输出（典型） |
+| --- | --- | --- | --- | --- |
+| 1 | `one` | 单表 | Controller / Service / Mapper / Entity / XML | `List.vue` + `Form.vue/Modal.vue` |
+| 3 | `tree` | 树表 | 同单表 + 树查询逻辑 | `List.vue` + 树形增改（Modal/Form） |
+| 3 | `many` | 一对多（经典） | 主表 + 子表 entity/mapper/service + `*Page` | Vue2：主列表 + 子表 Form |
+| 3 | `jvxe` | 一对多（JVXE） | 同一对多 | Vue2/Vue3：JVXE 子表编辑 |
+| 3 | `erp` | 一对多（ERP） | 同一对多 | 主列表 + 子表列表/弹窗（ERP 结构） |
+| 3 | `innerTable` | 一对多（内嵌） | 同一对多 | 子表以内嵌 `SubTable.vue` 呈现 |
+| 3 | `tab` | 一对多（Tab） | 同一对多 | 子表以 Tab 形式呈现 |
+
+> 备注：实际生成受 `vueStyle` 约束（见 6.1 表），例如 `default/onetomany` 仅支持 Vue2（`vue`）。
+
+### 6.4 Vue2 输出目录结构示意（典型）
+> 仅示意 Vue2 代码生成后的结构，不含 Vue3/Vue3Native/UniApp。
+
+```
+<projectPath>/
+  src/main/java/<packagePath>/
+    controller/<Entity>Controller.java
+    service/I<Entity>Service.java
+    service/impl/<Entity>ServiceImpl.java
+    mapper/<Entity>Mapper.java
+    entity/<Entity>.java
+  src/main/resources/
+    mapper/<Entity>Mapper.xml
+    <Entity>-menu.sql
+  front/                          (若配置前端输出路径)
+    src/views/<module>/<Entity>List.vue
+    src/views/<module>/modules/<Entity>Form.vue
+    src/views/<module>/modules/<Entity>Modal.vue
+    # 一对多时额外：
+    src/views/<module>/modules/<SubEntity>Form.vue
+```
+
+### 6.5 一对多前端差异对照（ERP / Tab / InnerTable / JVXE / 经典）
+> 只对比 Vue2 模板层面的差异，便于选型。
+
+| 模板 | 子表呈现 | 关键前端模板文件 | 说明 |
+| --- | --- | --- | --- |
+| 经典（default.onetomany） | 主表表单 + 子表表单 | `vue/${entityName}List.vuei`、`vue/modules/${entityName}Form.vuei`、`vue/modules/[1-n]Form.vuei` | Vue2 经典一对多 |
+| JVXE（jvxe.onetomany） | JVXE 可编辑表格 | `vue/${entityName}List.vuei`、`vue/modules/${entityName}Form.vuei`、`vue/modules/[1-n]Form.vuei` | 与经典同路径，但组件实现不同 |
+| ERP（erp.onetomany） | 子表列表 + 弹窗 | `vue/${entityName}List.vuei`、`vue/[1-n]List.vuei`、`vue/modules/${entityName}Modal.vuei`、`vue/modules/[1-n]Modal.vuei` | 子表使用列表与弹窗 |
+| InnerTable（inner-table.onetomany） | 子表内嵌 | `vue/subTables/[1-n]SubTable.vuei`、`vue/modules/${entityName}Form.vuei`、`vue/modules/[1-n]Form.vuei` | 子表以内嵌组件渲染 |
+| Tab（tab.onetomany） | 子表 Tab | `vue/modules/${entityName}Form.vuei`、`vue/modules/[1-n]Form.vuei` | 子表以 Tab 切换 |
+
+> 备注：Jvxe/Erp/InnerTable/Tab 的 Vue3/Vue3Native 差异类似，但路径在 `vue3/` 或 `vue3Native/` 下。
+
+### 6.6 各模板对应的模板文件清单（相对 `code-template-online/`）
 > 说明：`[1-n]` 代表子表实体占位符，`*.javai`/`*.vuei` 是 FreeMarker 模板文件后缀。
 
 #### 6.3.1 `default.one`（单表 / 经典）
