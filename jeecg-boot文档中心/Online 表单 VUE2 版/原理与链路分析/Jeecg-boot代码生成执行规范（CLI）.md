@@ -1,4 +1,4 @@
-# Jeecg-boot意图驱动的自动化代码生成方案
+# Jeecg-boot代码生成执行规范（CLI）
 
 > 目标：跳过 Jeecg-boot Online 表单配置 UI，保留 FreeMarker 模板生成逻辑，让 AI 直接从 DDL/业务描述生成标准代码。
 
