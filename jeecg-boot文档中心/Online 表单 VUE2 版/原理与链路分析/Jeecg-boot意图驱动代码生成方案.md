@@ -282,30 +282,16 @@ ColumnVo:
 
 AI 有两种实现路径：
 
-#### 方案A：直接调用 FreeMarker（**唯一允许**）
+#### 方案A：通过 Codegen CLI 调用官方模板引擎（**唯一允许**）
 
-```java
-// 1. 构建配置对象
-TableVo tableVo = buildTableVoFromDDL(ddl);
-List<ColumnVo> columns = buildColumnsFromDDL(ddl);
+- **入口**：`jeecg-codegen-cli`  
+- **输入**：YAML/JSON（TableVo/ColumnVo/SubTableVo 映射）  
+- **核心**：直接调用 `codegenerate` 模块的 `CodeGenerateOne/CodeGenerateOneToMany`，与 Online 生成逻辑一致  
+- **模板路径**：`/jeecg/code-template-online`（与 Online 表单一致）
 
-// 2. 准备模板上下文
-Map<String, Object> context = new HashMap<>();
-context.put("tableVo", tableVo);
-context.put("tableName", tableVo.getTableName());
-context.put("entityName", tableVo.getEntityName());
-context.put("entityPackage", tableVo.getEntityPackage());
-context.put("bussiPackage", "org.jeecg.modules");
-context.put("columns", columns);
-context.put("originalColumns", columns);
-context.put("primaryKeyField", "id");
-
-// 3. 调用 FreeMarker
-Configuration cfg = new Configuration(Configuration.VERSION_2_3_31);
-cfg.setDirectoryForTemplateLoading(new File("code-template-online"));
-Template template = cfg.getTemplate("default/one/java/.../entity/${entityName}.javai");
-StringWriter out = new StringWriter();
-template.process(context, out);
+示意（CLI 执行）：
+```
+java -jar jeecg-codegen-cli.jar --input spec.yaml --output /path/to/project
 ```
 
 #### 方案B：AI 直接生成（**禁止**）
