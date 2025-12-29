@@ -7,10 +7,12 @@
 ## 0. 强约束与目标（必须遵守）
 
 1. **模板驱动不可替代**：最终代码**必须通过官方 FreeMarker 模板渲染生成**，禁止“AI 直接拼代码”替代模板输出。
-2. **元数据模型一致**：生成过程必须构造与 Online 表单一致的 `TableVo/ColumnVo/SubTableVo` 结构与字段含义，保证模板能无歧义消费。
+2. **唯一数据模型**：生成入口只允许使用 `jeecg-codegen-cli` 的 `CodegenSpec`；`TableVo/ColumnVo/SubTableVo` 仅为 CLI 内部构造，不允许自行维护影子模型。
 3. **控件白名单**：仅允许使用 Vue2 模板已显式支持的控件类型；若需新增控件类型，必须先扩展模板并走 OpenSpec proposal。
-4. **输出一致性**：生成结果需与官方 Online 表单生成器输出保持结构与风格一致（路径、命名、注解、权限编码、Vue 组件引用）。
-5. **“不用 UI，但遵循 UI 规则”**：不再手工配置 Online 表单，但其元数据规则仍是唯一规范。
+4. **失败优先**：控件不支持、字段不完整、关系不确定时必须**阻断生成**，禁止“自动退化/默认兜底”。
+5. **输出一致性**：生成结果需与官方 Online 表单生成器输出保持结构与风格一致（路径、命名、注解、权限编码、Vue 组件引用）。
+6. **“不用 UI，但遵循 UI 规则”**：不再手工配置 Online 表单，但其元数据规则仍是唯一规范。
+7. **布尔字段规范**：模板判断全部基于字符串，`Y/N` 是唯一合法值（如 `isShow/isQuery/isShowList/isKey/readonly/sort/nullable` 等）。
 
 ## 1. 模板语义提取
 
@@ -28,77 +30,108 @@
 | `innerTable` | 一对多(内嵌) | `inner-table/onetomany` | 子表内嵌组件 |
 | `tab` | 一对多(Tab) | `tab/onetomany` | 子表 Tab 切换 |
 
-### 1.2 核心配置对象模型
+### 1.2 核心配置对象模型（唯一入口：CodegenSpec）
 
-FreeMarker 模板依赖两个核心数据结构：
+FreeMarker 模板不直接吃“自定义结构”，**唯一合法入口**是 `jeecg-codegen-cli` 的 `CodegenSpec`。你要做的，只是把 DDL/描述映射成这个结构。
 
-#### TableVo（表级配置）
+#### CodegenSpec（全局配置）
 ```java
-class TableVo {
-    String tableName;           // 物理表名
-    String entityName;          // 实体类名（大驼峰）
-    String entityPackage;       // 包路径（如 demo）
-    String ftlDescription;      // 功能描述
-    int fieldRowNum;            // 表单列数（1/2/3/4）
-    Map<String, Object> extendParams; // 扩展参数
-        // - scroll: 是否横向滚动
-        // - pidField: 树表父ID字段
-        // - idField: 树表主键字段
-        // - textField: 树表显示字段
+class CodegenSpec {
+  String jspMode;              // one/tree/many/jvxe/erp/innerTable/tab
+  String projectPath;          // 输出目录
+  String templatePath;         // 可选，空则用内置模板
+  String bussiPackage;         // 可选
+  String sourceRootPackage;    // 可选
+  String webRootPackage;       // 可选
+  String primaryKeyField;      // 可选
+  String vueStyle;             // 可选
+
+  TableSpec table;             // 必填
+  List<ColumnSpec> columns;    // 必填
+  List<SubTableSpec> subTables;// 一对多必填
 }
 ```
 
-#### ColumnVo（字段级配置）
+#### TableSpec（表级配置）
 ```java
-class ColumnVo {
-    // === 数据库属性 ===
-    String fieldDbName;         // 物理字段名（下划线）
-    String fieldName;           // Java属性名（小驼峰）
-    String fieldDbType;         // DB类型：string/int/double/BigDecimal/Datetime/Date/Blob
-    int dbLength;               // 字段长度
-    int dbPointLength;          // 小数位数
-    String dbDefaultVal;        // 数据库默认值
-    boolean isKey;              // 是否主键
-    boolean nullable;           // 是否允许空（N=必填）
-    
-    // === 表单属性 ===
-    String classType;           // 控件类型（核心！）
-    String filedComment;        // 字段中文名
-    String isShow;              // 表单是否显示（Y/N）
-    String isShowList;          // 列表是否显示
-    String isQuery;             // 是否查询条件
-    String queryMode;           // 查询模式：single/group
-    String readonly;            // 是否只读
-    String defaultVal;          // 表单默认值
-    int uploadnum;              // 上传数量限制
-    
-    // === 字典配置 ===
-    String dictField;           // 字典Code
-    String dictTable;           // 字典表名
-    String dictText;            // 字典显示字段
-    
-    // === 校验配置 ===
-    String fieldValidType;      // 校验规则编码
-    String fieldMustInput;      // 是否必填（1=是）
-    
-    // === 外键配置（一对多） ===
-    String mainTable;           // 外键主表名
-    String mainField;           // 外键主键字段
-    
-    // === 扩展参数 ===
-    Map<String, Object> extendParams;
-        // - popupMulti: popup是否多选
-        // - multi: 部门/用户选择是否多选
-        // - store: 存储字段
-        // - text: 显示字段
+class TableSpec {
+  String tableName;            // 物理表名
+  String entityPackage;        // 包路径（如 demo）
+  String entityName;           // 实体类名（大驼峰）
+  String ftlDescription;       // 功能描述
+  String primaryKeyPolicy;     // 主键策略
+  String sequenceCode;         // 序列（如有）
+  Integer fieldRowNum;         // 表单列数
+  Integer searchFieldNum;      // 查询字段数
+  Integer fieldRequiredNum;    // 必填字段数
+  Map<String, Object> extendParams; // 扩展参数
 }
 ```
+
+#### ColumnSpec（字段级配置）
+```java
+class ColumnSpec {
+  // === 数据库属性 ===
+  String fieldDbName;          // 物理字段名（下划线）
+  String fieldName;            // Java属性名（小驼峰）
+  String fieldType;            // Java类型（String/Integer/Long/BigDecimal/Date）
+  String fieldDbType;          // DB类型（string/int/double/BigDecimal/Datetime/Date/Blob）
+  String charmaxLength;        // 长度
+  String precision;            // 精度
+  String scale;                // 小数位
+  String nullable;             // 是否允许空（Y/N）
+  String classType;            // 控件类型（核心）
+  String classTypeRow;         // 特殊场景（可空）
+  String optionType;           // 选项类型（可空）
+
+  // === 表单/查询属性 ===
+  Integer fieldLength;         // 表单展示长度
+  String fieldHref;            // Href配置
+  String fieldValidType;       // 校验规则编码
+  String fieldDefault;         // 数据库默认值
+  String fieldShowType;        // 控件类型（建议与 classType 一致）
+  Integer fieldOrderNum;       // 排序号
+  String isKey;                // 是否主键（Y/N）
+  String isShow;               // 表单是否显示（Y/N）
+  String isShowList;           // 列表是否显示（Y/N）
+  String isQuery;              // 是否查询条件（Y/N）
+  String queryMode;            // single/group
+  String dictField;            // 字典Code
+  String dictTable;            // 字典表名
+  String dictText;             // 字典显示字段
+  String sort;                 // 是否排序（Y/N）
+  String readonly;             // 是否只读（Y/N）
+  String defaultVal;           // 表单默认值
+  String uploadnum;            // 上传数量限制
+  Map<String, Object> extendParams; // 扩展参数
+}
+```
+
+#### SubTableSpec（一对多子表配置）
+```java
+class SubTableSpec {
+  String tableName;
+  String entityPackage;        // 可空，默认主表包
+  String entityName;
+  String ftlDescription;
+  String primaryKeyPolicy;
+  String sequenceCode;
+  String foreignRelationType;  // 0/1
+  List<String> foreignKeys;    // 必填
+  List<String> foreignMainKeys;// 必填
+  List<ColumnSpec> columns;    // 必填
+  List<ColumnSpec> originalColumns; // 可空
+  Map<String, Object> extendParams;
+}
+```
+
+**结论**：`TableVo/ColumnVo/SubTableVo` 只存在于 CLI 内部构造，外部输入必须是 `CodegenSpec`。
 
 ### 1.3 控件类型清单（classType）
 
 | 控件类型 | Vue组件 | 适用场景 |
 |---------|--------|---------|
-| `text`/默认 | `<a-input />` | 普通文本 |
+| `default` | `<a-input />` | 普通文本（**显式映射为默认分支**） |
 | `date` | `<j-date />` | 日期选择 |
 | `datetime` | `<j-date :show-time="true" />` | 日期时间 |
 | `time` | `<j-time />` | 时间选择 |
@@ -121,7 +154,8 @@ class ColumnVo {
 | `markdown` | `<j-markdown-editor />` | Markdown |
 | `pca` | `<j-area-linkage />` | 省市区 |
 
-> **注意**：UI 可选控件 ≠ 模板可生成控件。Vue2 模板未显式支持的类型会退化为 `<a-input />`，**不允许**以“退化”作为默认策略。若业务明确需要该控件，必须补模板并走 OpenSpec proposal。
+> **注意**：UI 可选控件 ≠ 模板可生成控件。**只允许上述控件类型**；其余类型必须阻断并给出错误。  
+> `default` 是唯一允许的“普通输入”映射，不把未知控件当默认。
 
 ### 1.4 校验规则编码
 
@@ -140,18 +174,30 @@ class ColumnVo {
 
 ---
 
+### 1.5 字段值规范（必须）
+
+**字符串枚举值（模板硬编码判断）**  
+- `isShow/isShowList/isQuery/isKey/readonly/sort/nullable`：仅允许 `Y` 或 `N`  
+- `queryMode`：`single` 或 `group`  
+- `jspMode`：`one/tree/many/jvxe/erp/innerTable/tab`  
+
+**必填与默认值**  
+- `columns` 不能为空；一对多模式 `subTables` 不能为空且每个子表必须有 `foreignKeys/foreignMainKeys`。  
+- `classType` 必须在模板支持列表内，否则直接失败。  
+- `fieldDbType` 必须与 `fieldType` 语义一致（如 `Datetime` → `Date`）。  
+
 ## 2. 元数据映射机制
 
 ### 2.1 DDL → 配置对象的自动推导
 
-AI 需要从 DDL 自动推导出 `TableVo` 和 `ColumnVo[]`，核心映射规则：
+AI 需要从 DDL 自动推导出 `CodegenSpec.TableSpec` 和 `ColumnSpec[]`，核心映射规则：
 
 #### 2.1.1 表级推导
 
 ```
 DDL: CREATE TABLE `order_main` (...)
      ↓
-TableVo:
+CodegenSpec.table:
   tableName = "order_main"
   entityName = "OrderMain"          // 下划线转大驼峰
   entityPackage = "order"           // 取表名前缀或由AI推断
@@ -179,26 +225,38 @@ BLOB              → byte[] (fieldDbType=Blob)
 *_time/*_date     → date/datetime
 create_time       → datetime + 隐藏
 update_time       → datetime + 隐藏
-create_by         → text + 隐藏
-update_by         → text + 隐藏
+create_by         → default + 隐藏
+update_by         → default + 隐藏
 *_id (外键)       → popup/sel_search
 sex/gender        → radio + sex字典
-phone/mobile      → text + 手机校验(m)
-email             → text + 邮箱校验(e)
-*_url/*_link      → text + URL校验
+phone/mobile      → default + 手机校验(m)
+email             → default + 邮箱校验(e)
+*_url/*_link      → default + URL校验
 *_file/*_attach   → file
 *_img/*_image/*_pic → image
 *_content/*_desc  → textarea/umeditor
 *_remark/*_note   → textarea
-*_money/*_amount/*_price → number + money校验
+*_money/*_amount/*_price → default + money校验（由 fieldDbType 触发数字控件）
 is_*              → switch
-sort/*_order      → number
+sort/*_order      → default（由 fieldDbType 触发数字控件）
 ```
+
+**字段落地到 ColumnSpec（必须）**  
+- `fieldDbName`：DDL 字段名  
+- `fieldName`：下划线转小驼峰  
+- `fieldDbType`：按 DB 类型映射（`Datetime/Date/BigDecimal` 等）  
+- `fieldType`：Java 类型（String/Integer/Long/BigDecimal/Date）  
+- `charmaxLength/precision/scale`：来自 DDL 长度/精度  
+- `nullable`：`NOT NULL` → `N`，否则 `Y`  
+- `isKey`：主键字段 → `Y`  
+- `isShow/isShowList/isQuery`：默认 `Y/Y/N`，系统字段按规则隐藏  
+- `classType/fieldShowType`：控件类型（**必须**在白名单内）  
 
 **优先级规则（必须）**  
 1) **DB 类型优先**：`fieldDbType` 决定基础输入控件（如数字控件），`classType` 仅用于模板显式分支。  
-2) **控件白名单校验**：若语义推断出的 `classType` 不在模板支持列表中，必须回退为模板可生成控件并记录原因。  
-3) **字典/校验/扩展参数**：仅在模板会消费的字段范围内生成，避免“写了但模板不读”的假配置。
+2) **控件白名单校验**：若语义推断出的 `classType` 不在模板支持列表中，必须**阻断生成**并给出原因。  
+3) **字段一致性**：`classType` 与 `fieldShowType` 必须保持一致（若无特殊原因），避免模板分支与校验规则割裂。  
+4) **字典/校验/扩展参数**：仅在模板会消费的字段范围内生成，避免“写了但模板不读”的假配置。
 
 ### 2.2 业务描述增强
 
@@ -207,7 +265,7 @@ AI 可从自然语言描述中提取更精确的配置：
 ```
 用户输入："status字段用下拉框，选项有：待审核、已通过、已拒绝"
      ↓
-ColumnVo:
+ColumnSpec:
   classType = "list"
   dictField = "order_status"  // AI生成字典编码
   // 同时生成字典SQL
@@ -227,7 +285,7 @@ ColumnVo:
 | 字段名以 `is_` 开头 | `classType=switch` |
 | 字段类型 `DECIMAL` + 名含 `money/amount` | `fieldValidType=money` |
 | `NOT NULL` 约束 | `nullable=N` |
-| 有 `DEFAULT` 值 | `dbDefaultVal=xxx` |
+| 有 `DEFAULT` 值 | `fieldDefault=xxx` |
 | 有 `COMMENT` | `filedComment=xxx` |
 
 ---
@@ -242,8 +300,8 @@ ColumnVo:
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌─────────┐    ┌─────────────┐    ┌─────────────┐             │
-│  │  DDL    │───▶│  元数据推导  │───▶│  TableVo    │             │
-│  │  输入   │    │  (AI智能)   │    │  ColumnVo[] │             │
+│  │  DDL    │───▶│  元数据推导  │───▶│ CodegenSpec │             │
+│  │  输入   │    │  (AI智能)   │    │(Table/Cols) │             │
 │  └─────────┘    └─────────────┘    └──────┬──────┘             │
 │                                           │                     │
 │  ┌─────────┐                              ▼                     │
@@ -285,7 +343,7 @@ AI 有两种实现路径：
 #### 方案A：通过 Codegen CLI 调用官方模板引擎（**唯一允许**）
 
 - **入口**：`jeecg-codegen-cli`  
-- **输入**：YAML/JSON（TableVo/ColumnVo/SubTableVo 映射）  
+- **输入**：YAML/JSON（**CodegenSpec**）  
 - **核心**：直接调用 `codegenerate` 模块的 `CodeGenerateOne/CodeGenerateOneToMany`，与 Online 生成逻辑一致  
 - **模板路径**：`/jeecg/code-template-online`（与 Online 表单一致）
 
@@ -299,13 +357,15 @@ java -jar jeecg-codegen-cli.jar --input spec.yaml --output /path/to/project
 **禁止原因**：无法保证与官方模板输出 100% 一致，且会绕过模板演进与规范校验。
 
 ```
-输入：TableVo + ColumnVo[]
+输入：CodegenSpec（或 DDL/描述）
 输出：按模板风格生成的代码
 
 如需改动输出风格，只能通过修改模板实现，并走 OpenSpec proposal。
 ```
 
 ### 3.3 模板上下文变量清单
+
+> 说明：以下上下文由 CLI 内部从 `CodegenSpec` 构造，外部不直接生成它们。
 
 | 变量名 | 类型 | 说明 |
 |-------|------|------|
@@ -384,7 +444,7 @@ java -jar jeecg-codegen-cli.jar --input spec.yaml --output /path/to/project
 | 组件 | 职责 | 技术选型 |
 |-----|------|---------|
 | **DDL 解析器** | 解析 SQL DDL 提取表结构 | JSqlParser / Druid SQL Parser |
-| **元数据推导引擎** | DDL → TableVo/ColumnVo | AI 规则引擎 + 语义推断 |
+| **元数据推导引擎** | DDL → CodegenSpec | AI 规则引擎 + 语义推断 |
 | **配置增强器** | 业务描述 → 字典/校验配置 | LLM 自然语言理解 |
 | **模板渲染器** | FreeMarker 模板渲染 | FreeMarker 2.3.x |
 | **代码输出器** | 文件写入 + 目录结构 | Java IO / NIO |
@@ -441,7 +501,7 @@ java -jar jeecg-codegen-cli.jar --input spec.yaml --output /path/to/project
 
 - **模板一致性**：生成入口必须调用官方模板，禁止绕过模板层。  
 - **结构一致性**：校验输出目录/文件名/注解/权限编码与模板一致。  
-- **控件一致性**：确保 `field_show_type` 与模板分支匹配；若不匹配必须提示并阻断生成。  
+- **控件一致性**：确保 `classType/fieldShowType` 与模板分支匹配；若不匹配必须提示并阻断生成。  
 - **不支持控件**：如 `link_down/hidden/rate` 等 UI 存在但模板未支持，默认禁止生成，除非先扩模板。
 
 ### 5.3 AI Prompt 设计
@@ -457,7 +517,7 @@ java -jar jeecg-codegen-cli.jar --input spec.yaml --output /path/to/project
 
 # 任务
 1. 解析 DDL，提取表结构
-2. 推导 TableVo 和 ColumnVo[] 配置
+2. 推导 CodegenSpec（TableSpec/ColumnSpec/SubTableSpec）
 3. 智能推断控件类型、字典、校验规则
 4. 按 Jeecg 模板风格生成代码
 
@@ -475,48 +535,66 @@ java -jar jeecg-codegen-cli.jar --input spec.yaml --output /path/to/project
 支持 YAML 配置文件作为中间格式：
 
 ```yaml
+jspMode: one
+projectPath: /path/to/project
+bussiPackage: demo
+
 table:
-  name: order_main
-  entity: OrderMain
-  package: order
-  description: 订单主表
-  mode: one  # one/tree/many
+  tableName: order_main
+  entityPackage: order
+  entityName: OrderMain
+  ftlDescription: 订单主表
   fieldRowNum: 2
 
 columns:
-  - name: id
-    type: string
-    key: true
-    show: false
-    
-  - name: order_no
-    type: string
-    comment: 订单编号
-    show: true
-    query: true
-    valid: only
-    
-  - name: status
-    type: int
-    comment: 订单状态
-    control: list
-    dict: order_status
-    
-  - name: create_time
-    type: datetime
-    comment: 创建时间
-    show: false
+  - fieldDbName: id
+    fieldName: id
+    filedComment: 主键
+    fieldDbType: string
+    fieldType: String
+    isKey: Y
+    isShow: N
+    isShowList: N
+    isQuery: N
+    nullable: N
+    classType: default
+    fieldShowType: default
 
-dictionaries:
-  - code: order_status
-    items:
-      - value: 0
-        text: 待支付
-      - value: 1
-        text: 已支付
-      - value: 2
-        text: 已取消
+  - fieldDbName: order_no
+    fieldName: orderNo
+    filedComment: 订单编号
+    fieldDbType: string
+    fieldType: String
+    isShow: Y
+    isShowList: Y
+    isQuery: Y
+    queryMode: single
+    fieldValidType: only
+    classType: default
+    fieldShowType: default
+
+  - fieldDbName: status
+    fieldName: status
+    filedComment: 订单状态
+    fieldDbType: int
+    fieldType: Integer
+    classType: list
+    fieldShowType: list
+    dictField: order_status
+
+  - fieldDbName: create_time
+    fieldName: createTime
+    filedComment: 创建时间
+    fieldDbType: Datetime
+    fieldType: Date
+    classType: datetime
+    fieldShowType: datetime
+    isShow: N
+    isShowList: N
+    isQuery: N
 ```
+
+> 字典项 SQL 属于“配置增强器”的附加输出，不属于 `CodegenSpec` 本体字段。
 
 ---
 
