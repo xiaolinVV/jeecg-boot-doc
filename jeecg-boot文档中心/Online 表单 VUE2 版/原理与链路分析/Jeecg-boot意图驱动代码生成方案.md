@@ -347,10 +347,52 @@ AI 有两种实现路径：
 - **核心**：直接调用 `codegenerate` 模块的 `CodeGenerateOne/CodeGenerateOneToMany`，与 Online 生成逻辑一致  
 - **模板路径**：`/jeecg/code-template-online`（与 Online 表单一致）
 
+**新增：DDL → CodegenSpec（CLI 子入口）**  
+为减少手工编写 spec，CLI 支持从 DDL 直接生成 `CodegenSpec`（单表原型）。
+
+示意（只生成 spec，不渲染）：
+```
+java -jar jeecg-codegen-cli.jar --ddl /path/to/schema.sql --spec-out /path/to/spec.yaml --output /path/to/project --jsp-mode one
+```
+
+直接输出到 stdout：
+```
+java -jar jeecg-codegen-cli.jar --ddl /path/to/schema.sql > spec.yaml
+```
+
+> 约束：`--ddl` 仅生成 spec，不触发模板渲染；后续仍需走 `--input` 执行生成。
+
 示意（CLI 执行）：
 ```
 java -jar jeecg-codegen-cli.jar --input spec.yaml --output /path/to/project
 ```
+
+**完整流程示例：DDL → spec → 模板渲染**
+```
+# 1) DDL 转 spec（输出到文件）
+java -jar jeecg-codegen-cli.jar \
+  --ddl /path/to/schema.sql \
+  --spec-out /path/to/spec.yaml \
+  --output /path/to/project \
+  --jsp-mode one \
+  --bussi-package demo \
+  --entity-package order \
+  --field-row-num 2
+
+# 2) spec 渲染生成代码
+java -jar jeecg-codegen-cli.jar \
+  --input /path/to/spec.yaml \
+  --output /path/to/project
+```
+
+参数说明（最小必要）：
+- `--ddl`：DDL 文件路径（单表 `CREATE TABLE`）  
+- `--spec-out`：输出 spec 的路径（YAML）  
+- `--output`：最终生成代码落盘目录（也会写入 spec.projectPath）  
+- `--jsp-mode`：模板风格（`one/tree/many/jvxe/erp/innerTable/tab`）  
+- `--bussi-package`：业务包前缀（可选）  
+- `--entity-package`：实体包路径（可选；不填则用表名前缀）  
+- `--field-row-num`：表单列数（可选，默认 2）
 
 #### 方案B：AI 直接生成（**禁止**）
 
