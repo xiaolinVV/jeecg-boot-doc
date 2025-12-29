@@ -45,6 +45,7 @@ class CodegenSpec {
   String webRootPackage;       // 可选
   String primaryKeyField;      // 可选
   String vueStyle;             // 可选
+  String frontendRoot;         // 可选，前端输出根目录（Vue 输出重定向）
 
   TableSpec table;             // 必填
   List<ColumnSpec> columns;    // 必填
@@ -393,6 +394,13 @@ java -jar jeecg-codegen-cli.jar \
 - `--bussi-package`：业务包前缀（可选）  
 - `--entity-package`：实体包路径（可选；不填则用表名前缀）  
 - `--field-row-num`：表单列数（可选，默认 2）
+- `--frontend-root`：前端输出根目录（可选，默认 `ant-design-vue-jeecg/src/views`）
+
+默认值策略（CLI 内置）：
+- `projectPath`：优先 `--output`；否则默认 `jeecg-boot/jeecg-module-system/jeecg-system-biz`（存在时）；再否则当前目录  
+- `bussiPackage`：默认 `org.jeecg.modules`  
+- `entityPackage`：默认取表名前缀（如 `order_main` → `order`，无前缀则 `demo`）  
+- `frontendRoot`：优先 `--frontend-root`；否则默认 `ant-design-vue-jeecg/src/views`（存在时）
 
 #### 方案B：AI 直接生成（**禁止**）
 
