@@ -413,6 +413,212 @@ java -jar jeecg-codegen-cli.jar \
   - `innerTable` / `tab`：`vue` / `vue3`  
   - `tree` / `one`：`vue` / `vue3` / `vue3Native`  
 
+## 3.6 标准 CLI 操作范式（建议直接复用）
+
+### 3.6.1 单表（Vue2）
+```bash
+# 1) DDL → spec
+java -jar jeecg-codegen-cli.jar \
+  --ddl /path/to/xxx.sql \
+  --spec-out /path/to/specs/xxx.yaml \
+  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views \
+  --jsp-mode one \
+  --vue-style vue \
+  --bussi-package org.jeecg.modules \
+  --entity-package xxx
+
+# 2) spec → 模板渲染
+java -jar jeecg-codegen-cli.jar \
+  --input /path/to/specs/xxx.yaml \
+  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views
+```
+
+### 3.6.2 一对多（Vue2 多风格）
+```bash
+# 1) DDL → spec（多表）
+java -jar jeecg-codegen-cli.jar \
+  --ddl /path/to/xxx.sql \
+  --spec-out /path/to/specs/xxx.yaml \
+  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views \
+  --jsp-mode many \
+  --vue-style vue \
+  --one-to-many \
+  --main-table <main_table> \
+  --sub-tables <sub_table_1,sub_table_2> \
+  --bussi-package org.jeecg.modules \
+  --entity-package xxx
+
+# 2) spec → 模板渲染（按需切换风格）
+java -jar jeecg-codegen-cli.jar --input /path/to/specs/xxx.yaml --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views --jsp-mode many --vue-style vue
+java -jar jeecg-codegen-cli.jar --input /path/to/specs/xxx.yaml --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views --jsp-mode jvxe --vue-style vue
+java -jar jeecg-codegen-cli.jar --input /path/to/specs/xxx.yaml --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views --jsp-mode erp --vue-style vue
+java -jar jeecg-codegen-cli.jar --input /path/to/specs/xxx.yaml --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views --jsp-mode innerTable --vue-style vue
+java -jar jeecg-codegen-cli.jar --input /path/to/specs/xxx.yaml --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views --jsp-mode tab --vue-style vue
+```
+
+### 3.6.3 树表（Vue2）
+```bash
+# 1) DDL → spec
+java -jar jeecg-codegen-cli.jar \
+  --ddl /path/to/xxx.sql \
+  --spec-out /path/to/specs/xxx.yaml \
+  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views \
+  --jsp-mode tree \
+  --vue-style vue \
+  --bussi-package org.jeecg.modules \
+  --entity-package xxx
+
+# 2) spec → 模板渲染
+java -jar jeecg-codegen-cli.jar \
+  --input /path/to/specs/xxx.yaml \
+  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views
+```
+
+## 3.7 必须手工覆盖的控件清单（DDL 无法可靠推断）
+
+以下控件需要在 `spec.yaml` 中显式设置 `classType/fieldShowType`，并补齐字典或扩展参数：
+- `sel_user`（用户选择）
+- `sel_depart`（部门选择）
+- `sel_search`（搜索下拉）
+- `sel_tree`（树形下拉）
+- `cat_tree`（分类字典树）
+- `popup`（弹窗选择）
+
+最小示例（片段）：
+```yaml
+columns:
+  - fieldDbName: owner_user_id
+    fieldName: ownerUserId
+    classType: sel_user
+    fieldShowType: sel_user
+  - fieldDbName: dept_id
+    fieldName: deptId
+    classType: sel_depart
+    fieldShowType: sel_depart
+```
+
+## 3.8 失败优先清单（必须阻断）
+- 多表 DDL 未指定主表。  
+- 一对多模式未显式 `--one-to-many`。  
+- 一对多外键无法唯一匹配或主键复合。  
+- 树表缺 `parent_id` 或 `name/title`。  
+- 控件类型不在模板白名单或字典控件缺 `dictField/dictTable`。
+
+## 3.9 参数速查表
+
+### 通用参数
+| 参数 | 说明 | 是否必填 | 备注 |
+| --- | --- | --- | --- |
+| `--ddl` | DDL 文件路径 | 条件必填 | 仅用于 DDL→spec |
+| `--input` | spec 文件路径 | 条件必填 | 仅用于 spec→渲染 |
+| `--spec-out` | spec 输出路径 | 可选 | 未指定时输出到默认目录 |
+| `--output` | 后端输出目录 | 可选 | 默认 `jeecg-boot/jeecg-module-system/jeecg-system-biz` |
+| `--frontend-root` | 前端输出根目录 | 可选 | 默认 `ant-design-vue-jeecg/src/views` |
+| `--jsp-mode` | 模板风格 | 必填 | one/tree/many/jvxe/erp/innerTable/tab |
+| `--vue-style` | 前端风格 | 可选 | vue/vue3/vue3Native（须匹配 jsp-mode） |
+| `--bussi-package` | 业务包前缀 | 可选 | 默认 `org.jeecg.modules` |
+| `--entity-package` | 实体包 | 可选 | 默认表名前缀 |
+| `--field-row-num` | 表单列数 | 可选 | 未指定自动推断 |
+| `--query-fields` | 查询字段 | 可选 | 形如 `name,status,create_time:group` |
+| `--template` | 自定义模板路径 | 可选 | 覆盖默认模板目录 |
+
+### 一对多参数
+| 参数 | 说明 | 是否必填 | 备注 |
+| --- | --- | --- | --- |
+| `--one-to-many` | 启用一对多 | 必填 | 仅在一对多模式使用 |
+| `--main-table` | 主表名 | 必填 | 多表 DDL 必填 |
+| `--sub-tables` | 子表名列表 | 必填 | 逗号分隔 |
+
+### 树表参数
+| 参数 | 说明 | 是否必填 | 备注 |
+| --- | --- | --- | --- |
+| `--tree-pid-field` | 父节点字段 | 可选 | 默认 parent_id |
+| `--tree-text-field` | 文本字段 | 可选 | 默认 name/title |
+| `--tree-has-children` | 子节点标识 | 可选 | 默认 has_child/is_leaf |
+
+## 3.10 spec 字段最小模板
+
+### 单表最小模板
+```yaml
+jspMode: one
+projectPath: /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz
+bussiPackage: org.jeecg.modules
+table:
+  tableName: cli_products
+  entityPackage: cli
+  entityName: CliProducts
+  ftlDescription: 产品
+  fieldRowNum: 2
+columns:
+  - fieldDbName: id
+    fieldName: id
+    fieldType: String
+    fieldDbType: string
+    isKey: Y
+    isShow: N
+    isShowList: N
+    isQuery: N
+    nullable: N
+    classType: default
+    fieldShowType: default
+  - fieldDbName: name
+    fieldName: name
+    fieldType: String
+    fieldDbType: string
+    isShow: Y
+    isShowList: Y
+    isQuery: Y
+    queryMode: single
+    nullable: Y
+    classType: default
+    fieldShowType: default
+```
+
+### 一对多最小模板
+```yaml
+jspMode: many
+projectPath: /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz
+bussiPackage: org.jeecg.modules
+table:
+  tableName: cli_contracts
+  entityPackage: cli
+  entityName: CliContracts
+  ftlDescription: 合同
+  fieldRowNum: 2
+columns: [ ...主表字段... ]
+subTables:
+  - tableName: cli_contract_items
+    entityName: CliContractItems
+    ftlDescription: 合同明细
+    foreignRelationType: "0"
+    foreignKeys: [contract_id]
+    foreignMainKeys: [id]
+    columns: [ ...子表字段... ]
+```
+
+### 树表最小模板
+```yaml
+jspMode: tree
+projectPath: /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz
+bussiPackage: org.jeecg.modules
+table:
+  tableName: cli_categories
+  entityPackage: cli
+  entityName: CliCategories
+  ftlDescription: 分类树
+  fieldRowNum: 2
+  extendParams:
+    pidField: parent_id
+    textField: name
+    hasChildren: has_child
+columns: [ ...字段... ]
+```
+
 默认值策略（CLI 内置）：
 - `projectPath`：优先 `--output`；否则默认 `jeecg-boot/jeecg-module-system/jeecg-system-biz`（存在时）；再否则当前目录  
 - `bussiPackage`：默认 `org.jeecg.modules`  
