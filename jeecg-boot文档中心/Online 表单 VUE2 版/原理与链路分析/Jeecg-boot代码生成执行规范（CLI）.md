@@ -387,7 +387,7 @@ java -jar jeecg-codegen-cli.jar \
 ```
 
 参数说明（最小必要）：
-- `--ddl`：DDL 文件路径（单表 `CREATE TABLE`）  
+- `--ddl`：DDL 文件路径（支持多条 `CREATE TABLE`）  
 - `--spec-out`：输出 spec 的路径（YAML）  
 - `--output`：最终生成代码落盘目录（也会写入 spec.projectPath）  
 - `--jsp-mode`：模板风格（`one/tree/many/jvxe/erp/innerTable/tab`）  
@@ -395,6 +395,23 @@ java -jar jeecg-codegen-cli.jar \
 - `--entity-package`：实体包路径（可选；不填则用表名前缀）  
 - `--field-row-num`：表单列数（可选，默认 2）
 - `--frontend-root`：前端输出根目录（可选，默认 `ant-design-vue-jeecg/src/views`）
+- `--vue-style`：前端代码风格（`vue`/`vue3`/`vue3Native`，需与 `jsp-mode` 支持范围匹配）  
+- `--one-to-many`：显式启用一对多 spec 生成（必填配合 `--main-table`/`--sub-tables`）  
+- `--main-table`：主表表名（多表 DDL 必填）  
+- `--sub-tables`：子表表名列表（逗号分隔，一对多必填）  
+- `--tree-pid-field`：树父节点字段（可选，默认 `parent_id`）  
+- `--tree-text-field`：树显示字段（可选，默认 `name`/`title`）  
+- `--tree-has-children`：树子节点标识字段（可选，默认 `has_child`/`is_leaf`）  
+
+约束说明：
+- 多表 DDL 未指定 `--main-table` 将直接失败。  
+- `jsp-mode` 为一对多模板时必须显式 `--one-to-many`，否则拒绝生成。  
+- `jsp-mode=tree` 必须具备 `parent_id` 与 `name/title`（或通过 `--tree-*` 指定）。  
+- `jsp-mode` 与 `--vue-style` 的匹配规则：
+  - `many`：仅 `vue`  
+  - `jvxe` / `erp`：`vue` / `vue3` / `vue3Native`  
+  - `innerTable` / `tab`：`vue` / `vue3`  
+  - `tree` / `one`：`vue` / `vue3` / `vue3Native`  
 
 默认值策略（CLI 内置）：
 - `projectPath`：优先 `--output`；否则默认 `jeecg-boot/jeecg-module-system/jeecg-system-biz`（存在时）；再否则当前目录  
