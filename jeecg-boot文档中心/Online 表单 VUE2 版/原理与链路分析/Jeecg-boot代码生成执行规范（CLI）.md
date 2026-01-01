@@ -625,17 +625,6 @@ columns: [ ...字段... ]
 - `entityPackage`：默认取表名前缀（如 `order_main` → `order`，无前缀则 `demo`）  
 - `frontendRoot`：优先 `--frontend-root`；否则默认 `ant-design-vue-jeecg/src/views`（存在时）
 
-#### 方案B：AI 直接生成（**禁止**）
-
-**禁止原因**：无法保证与官方模板输出 100% 一致，且会绕过模板演进与规范校验。
-
-```
-输入：CodegenSpec（或 DDL/描述）
-输出：按模板风格生成的代码
-
-如需改动输出风格，只能通过修改模板实现，并走 OpenSpec proposal。
-```
-
 ### 3.3 模板上下文变量清单
 
 > 说明：以下上下文由 CLI 内部从 `CodegenSpec` 构造，外部不直接生成它们。
