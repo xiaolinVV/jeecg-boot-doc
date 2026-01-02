@@ -96,6 +96,15 @@ java -jar jeecg-codegen-cli.jar \
   --bussi-package org.jeecg.modules \
   --entity-package cli
 
+# 可选：spec → dry-run（规划清单，不落盘）
+java -jar jeecg-codegen-cli.jar \
+  --input /path/to/specs/cli_contracts.yaml \
+  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views \
+  --jsp-mode many \
+  --vue-style vue \
+  --dry-run
+
 # 经典一对多（default.onetomany）
 java -jar jeecg-codegen-cli.jar \
   --input /path/to/specs/cli_contracts.yaml \
