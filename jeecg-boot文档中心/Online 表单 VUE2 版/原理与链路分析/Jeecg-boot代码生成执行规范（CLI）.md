@@ -428,78 +428,155 @@ java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-d
 
 ## 3.6 标准 CLI 操作范式（建议直接复用）
 
+> 以下命令默认在仓库根目录执行。
+
 ### 3.6.1 单表（Vue2）
 ```bash
 # 1) DDL → spec
-java -jar jeecg-codegen-cli.jar \
-  --ddl /path/to/xxx.sql \
-  --spec-out /path/to/specs/xxx.yaml \
-  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
-  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views \
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --ddl specs/cli_products.sql \
+  --spec-out specs/cli_products.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
   --jsp-mode one \
   --vue-style vue \
   --bussi-package org.jeecg.modules \
-  --entity-package xxx
+  --entity-package cli
 
 # 2) spec → 模板渲染
-java -jar jeecg-codegen-cli.jar \
-  --input /path/to/specs/xxx.yaml \
-  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
-  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --input specs/cli_products.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
+  --vue-style vue
 ```
 
 ### 3.6.2 一对多（Vue2 多风格）
 ```bash
-# 1) DDL → spec（多表）
-java -jar jeecg-codegen-cli.jar \
-  --ddl /path/to/xxx.sql \
-  --spec-out /path/to/specs/xxx.yaml \
-  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
-  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views \
+# 1) DDL → spec（多表 / many）
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --ddl specs/cli_contracts.sql \
+  --spec-out specs/cli_contracts_many.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
   --jsp-mode many \
   --vue-style vue \
   --one-to-many \
-  --main-table <main_table> \
-  --sub-tables <sub_table_1,sub_table_2> \
+  --main-table cli_contracts \
+  --sub-tables cli_contract_items \
   --bussi-package org.jeecg.modules \
-  --entity-package xxx
+  --entity-package cli
 
-# 2) spec → 模板渲染（按需切换风格）
-java -jar jeecg-codegen-cli.jar --input /path/to/specs/xxx.yaml --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views --jsp-mode many --vue-style vue
-java -jar jeecg-codegen-cli.jar --input /path/to/specs/xxx.yaml --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views --jsp-mode jvxe --vue-style vue
-java -jar jeecg-codegen-cli.jar --input /path/to/specs/xxx.yaml --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views --jsp-mode erp --vue-style vue
-java -jar jeecg-codegen-cli.jar --input /path/to/specs/xxx.yaml --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views --jsp-mode innerTable --vue-style vue
-java -jar jeecg-codegen-cli.jar --input /path/to/specs/xxx.yaml --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views --jsp-mode tab --vue-style vue
+# 2) spec → 模板渲染（many）
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --input specs/cli_contracts_many.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
+  --vue-style vue
+
+# 3) 其他风格（每个风格各生成一份 spec 再渲染）
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --ddl specs/cli_contracts.sql \
+  --spec-out specs/cli_contracts_jvxe.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
+  --jsp-mode jvxe \
+  --vue-style vue \
+  --one-to-many \
+  --main-table cli_contracts \
+  --sub-tables cli_contract_items \
+  --bussi-package org.jeecg.modules \
+  --entity-package cli
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --input specs/cli_contracts_jvxe.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
+  --vue-style vue
+
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --ddl specs/cli_contracts.sql \
+  --spec-out specs/cli_contracts_erp.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
+  --jsp-mode erp \
+  --vue-style vue \
+  --one-to-many \
+  --main-table cli_contracts \
+  --sub-tables cli_contract_items \
+  --bussi-package org.jeecg.modules \
+  --entity-package cli
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --input specs/cli_contracts_erp.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
+  --vue-style vue
+
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --ddl specs/cli_contracts.sql \
+  --spec-out specs/cli_contracts_innerTable.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
+  --jsp-mode innerTable \
+  --vue-style vue \
+  --one-to-many \
+  --main-table cli_contracts \
+  --sub-tables cli_contract_items \
+  --bussi-package org.jeecg.modules \
+  --entity-package cli
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --input specs/cli_contracts_innerTable.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
+  --vue-style vue
+
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --ddl specs/cli_contracts.sql \
+  --spec-out specs/cli_contracts_tab.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
+  --jsp-mode tab \
+  --vue-style vue \
+  --one-to-many \
+  --main-table cli_contracts \
+  --sub-tables cli_contract_items \
+  --bussi-package org.jeecg.modules \
+  --entity-package cli
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --input specs/cli_contracts_tab.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
+  --vue-style vue
 ```
 
 ### 3.6.3 树表（Vue2）
 ```bash
 # 1) DDL → spec
-java -jar jeecg-codegen-cli.jar \
-  --ddl /path/to/xxx.sql \
-  --spec-out /path/to/specs/xxx.yaml \
-  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
-  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views \
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --ddl specs/cli_categories.sql \
+  --spec-out specs/cli_categories.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
   --jsp-mode tree \
   --vue-style vue \
   --bussi-package org.jeecg.modules \
-  --entity-package xxx
+  --entity-package cli
 
 # 2) spec → 模板渲染
-java -jar jeecg-codegen-cli.jar \
-  --input /path/to/specs/xxx.yaml \
-  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
-  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --input specs/cli_categories.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
+  --vue-style vue
 ```
 
 ### 3.6.4 规划模式（dry-run，仅 --input）
 > 仅输出将生成的文件清单，不落盘，便于 AI/脚本规划后续改动。
 
 ```bash
-java -jar jeecg-codegen-cli.jar \
-  --input /path/to/specs/xxx.yaml \
-  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
-  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views \
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --input specs/cli_products.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
   --dry-run
 ```
 
