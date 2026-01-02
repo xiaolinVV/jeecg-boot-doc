@@ -83,11 +83,11 @@ VALUES (@item_unit_set, @dict_item_unit_id, '套', 'SET', null, '套', 2, 1, 'ad
 
 ```bash
 # 统一：DDL → spec（多表）
-java -jar jeecg-codegen-cli.jar \
-  --ddl /path/to/cli_contracts.sql \
-  --spec-out /path/to/specs/cli_contracts.yaml \
-  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
-  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views \
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --ddl specs/cli_contracts.sql \
+  --spec-out specs/cli_contracts_many.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
   --jsp-mode many \
   --vue-style vue \
   --one-to-many \
@@ -97,52 +97,94 @@ java -jar jeecg-codegen-cli.jar \
   --entity-package cli
 
 # 可选：spec → dry-run（规划清单，不落盘）
-java -jar jeecg-codegen-cli.jar \
-  --input /path/to/specs/cli_contracts.yaml \
-  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
-  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views \
-  --jsp-mode many \
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --input specs/cli_contracts_many.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
   --vue-style vue \
   --dry-run
 
 # 经典一对多（default.onetomany）
-java -jar jeecg-codegen-cli.jar \
-  --input /path/to/specs/cli_contracts.yaml \
-  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
-  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views \
-  --jsp-mode many \
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --input specs/cli_contracts_many.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
   --vue-style vue
 
 # JVXE 一对多
-java -jar jeecg-codegen-cli.jar \
-  --input /path/to/specs/cli_contracts.yaml \
-  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
-  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views \
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --ddl specs/cli_contracts.sql \
+  --spec-out specs/cli_contracts_jvxe.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
   --jsp-mode jvxe \
+  --vue-style vue \
+  --one-to-many \
+  --main-table cli_contracts \
+  --sub-tables cli_contract_items \
+  --bussi-package org.jeecg.modules \
+  --entity-package cli
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --input specs/cli_contracts_jvxe.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
   --vue-style vue
 
 # ERP 一对多
-java -jar jeecg-codegen-cli.jar \
-  --input /path/to/specs/cli_contracts.yaml \
-  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
-  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views \
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --ddl specs/cli_contracts.sql \
+  --spec-out specs/cli_contracts_erp.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
   --jsp-mode erp \
+  --vue-style vue \
+  --one-to-many \
+  --main-table cli_contracts \
+  --sub-tables cli_contract_items \
+  --bussi-package org.jeecg.modules \
+  --entity-package cli
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --input specs/cli_contracts_erp.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
   --vue-style vue
 
 # 内嵌子表（innerTable）
-java -jar jeecg-codegen-cli.jar \
-  --input /path/to/specs/cli_contracts.yaml \
-  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
-  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views \
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --ddl specs/cli_contracts.sql \
+  --spec-out specs/cli_contracts_innerTable.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
   --jsp-mode innerTable \
+  --vue-style vue \
+  --one-to-many \
+  --main-table cli_contracts \
+  --sub-tables cli_contract_items \
+  --bussi-package org.jeecg.modules \
+  --entity-package cli
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --input specs/cli_contracts_innerTable.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
   --vue-style vue
 
 # Tab 一对多
-java -jar jeecg-codegen-cli.jar \
-  --input /path/to/specs/cli_contracts.yaml \
-  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
-  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views \
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --ddl specs/cli_contracts.sql \
+  --spec-out specs/cli_contracts_tab.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
   --jsp-mode tab \
+  --vue-style vue \
+  --one-to-many \
+  --main-table cli_contracts \
+  --sub-tables cli_contract_items \
+  --bussi-package org.jeecg.modules \
+  --entity-package cli
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --input specs/cli_contracts_tab.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
   --vue-style vue
 ```
 
