@@ -479,6 +479,30 @@ java -jar jeecg-codegen-cli.jar \
   --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views
 ```
 
+### 3.6.4 规划模式（dry-run，仅 --input）
+> 仅输出将生成的文件清单，不落盘，便于 AI/脚本规划后续改动。
+
+```bash
+java -jar jeecg-codegen-cli.jar \
+  --input /path/to/specs/xxx.yaml \
+  --output /abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root /abs/path/jeecg-boot/ant-design-vue-jeecg/src/views \
+  --dry-run
+```
+
+输出示例（结构化，区分前端/后端）：
+```json
+{
+  "dryRun": true,
+  "backend": [
+    "/abs/path/jeecg-boot/jeecg-module-system/jeecg-system-biz/src/main/java/org/jeecg/modules/xxx/entity/Xxx.java"
+  ],
+  "frontend": [
+    "/abs/path/jeecg-boot/ant-design-vue-jeecg/src/views/xxx/XxxList.vue"
+  ]
+}
+```
+
 ## 3.7 必须手工覆盖的控件清单（DDL 无法可靠推断）
 
 以下控件需要在 `spec.yaml` 中显式设置 `classType/fieldShowType`，并补齐字典或扩展参数：
@@ -526,6 +550,7 @@ columns:
 | `--field-row-num` | 表单列数 | 可选 | 未指定自动推断 |
 | `--query-fields` | 查询字段 | 可选 | 形如 `name,status,create_time:group` |
 | `--template` | 自定义模板路径 | 可选 | 覆盖默认模板目录 |
+| `--dry-run` | 规划模式 | 可选 | **仅 `--input` 生效**，不落盘，仅输出前/后端清单 |
 
 ### 一对多参数
 | 参数 | 说明 | 是否必填 | 备注 |
