@@ -343,7 +343,7 @@ AI 有两种实现路径：
 
 #### 方案A：通过 Codegen CLI 调用官方模板引擎（**唯一允许**）
 
-- **入口**：`jeecg-codegen-cli`  
+- **入口**：本项目模块 `jeecg-boot/jeecg-codegen-cli`，执行 `jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar`  
 - **输入**：YAML/JSON（**CodegenSpec**）  
 - **核心**：直接调用 `codegenerate` 模块的 `CodeGenerateOne/CodeGenerateOneToMany`，与 Online 生成逻辑一致  
 - **模板路径**：`/jeecg/code-template-online`（与 Online 表单一致）
@@ -353,37 +353,50 @@ AI 有两种实现路径：
 
 示意（只生成 spec，不渲染）：
 ```
-java -jar jeecg-codegen-cli.jar --ddl /path/to/schema.sql --spec-out /path/to/spec.yaml --output /path/to/project --jsp-mode one
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --ddl specs/cli_products.sql \
+  --spec-out specs/cli_products.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
+  --jsp-mode one
 ```
 
 直接输出到 stdout：
 ```
-java -jar jeecg-codegen-cli.jar --ddl /path/to/schema.sql > spec.yaml
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --ddl specs/cli_products.sql > specs/cli_products.yaml
 ```
 
 > 约束：`--ddl` 仅生成 spec，不触发模板渲染；后续仍需走 `--input` 执行生成。
 
 示意（CLI 执行）：
 ```
-java -jar jeecg-codegen-cli.jar --input spec.yaml --output /path/to/project
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --input specs/cli_products.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
+  --vue-style vue
 ```
 
 **完整流程示例：DDL → spec → 模板渲染**
 ```
 # 1) DDL 转 spec（输出到文件）
-java -jar jeecg-codegen-cli.jar \
-  --ddl /path/to/schema.sql \
-  --spec-out /path/to/spec.yaml \
-  --output /path/to/project \
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --ddl specs/cli_products.sql \
+  --spec-out specs/cli_products.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
   --jsp-mode one \
-  --bussi-package demo \
-  --entity-package order \
+  --bussi-package org.jeecg.modules \
+  --entity-package cli \
   --field-row-num 2
 
 # 2) spec 渲染生成代码
-java -jar jeecg-codegen-cli.jar \
-  --input /path/to/spec.yaml \
-  --output /path/to/project
+java -jar jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar \
+  --input specs/cli_products.yaml \
+  --output jeecg-boot/jeecg-module-system/jeecg-system-biz \
+  --frontend-root ant-design-vue-jeecg/src/views \
+  --vue-style vue
 ```
 
 参数说明（最小必要）：
