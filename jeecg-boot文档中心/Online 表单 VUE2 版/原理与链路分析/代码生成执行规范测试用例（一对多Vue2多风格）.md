@@ -80,6 +80,7 @@ VALUES (@item_unit_set, @dict_item_unit_id, '套', 'SET', null, '套', 2, 1, 'ad
 ## 2. CLI 执行指令（Vue2 多风格）
 
 > 注意：一对多必须显式 `--one-to-many`，并指定 `--main-table/--sub-tables`。
+> 当使用 `--input` 读取既有 spec 时，`BigDecimal` 必须写成 `java.math.BigDecimal`（全限定名），否则 VO 可能缺少 import 而导致编译失败。
 
 ```bash
 # 统一：DDL → spec（多表）
