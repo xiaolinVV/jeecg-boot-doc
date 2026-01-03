@@ -347,6 +347,9 @@ AI 有两种实现路径：
 - **输入**：YAML/JSON（**CodegenSpec**）  
 - **核心**：直接调用 `codegenerate` 模块的 `CodeGenerateOne/CodeGenerateOneToMany`，与 Online 生成逻辑一致  
 - **模板路径**：`/jeecg/code-template-online`（与 Online 表单一致）
+- **Jar 不存在时先构建**：在 `jeecg-boot/` 内执行  
+  `mvn -pl jeecg-codegen-cli -am clean package`  
+  生成 `jeecg-boot/jeecg-codegen-cli/target/jeecg-codegen-cli-3.6.3-jar-with-dependencies.jar`
 
 **新增：DDL → CodegenSpec（CLI 子入口）**  
 为减少手工编写 spec，CLI 支持从 DDL 直接生成 `CodegenSpec`（单表原型）。
