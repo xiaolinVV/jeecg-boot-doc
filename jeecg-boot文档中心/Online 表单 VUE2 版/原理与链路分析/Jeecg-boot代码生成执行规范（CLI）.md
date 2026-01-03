@@ -108,6 +108,8 @@ class ColumnSpec {
 }
 ```
 
+> **注意**：当使用 `--input` 读取既有 spec 时，`BigDecimal` 必须写成 `java.math.BigDecimal`（全限定名），否则生成的 VO 可能缺少 import 而导致编译失败。若使用 `--ddl` 重新生成 spec，则会自动输出正确类型。
+
 #### SubTableSpec（一对多子表配置）
 ```java
 class SubTableSpec {
